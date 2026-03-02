@@ -21,7 +21,8 @@ pub fn main() !void {
     try c.write(allocator, 2, 3);
     try c.write(allocator, @intFromEnum(chunk.OpCode.op_constant), 3);
     try c.write(allocator, 0, 3);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.op_negate), 3);
     try c.write(allocator, @intFromEnum(chunk.OpCode.op_return), 3);
-    var v: vm.VM = vm.VM.init(&c);
+    var v: vm.VM = try vm.VM.init(allocator, &c);
     _ = v.interpret();
 }

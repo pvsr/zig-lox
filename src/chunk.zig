@@ -4,6 +4,7 @@ const Value = @import("value.zig").Value;
 pub const OpCode = enum(u8) {
     op_constant,
     op_return,
+    op_negate,
     _,
 };
 

@@ -22,7 +22,7 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
 
     const instruction: OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {
-        OpCode.op_return => simpleInstruction(@tagName(instruction)),
+        OpCode.op_return, OpCode.op_negate => simpleInstruction(@tagName(instruction)),
         OpCode.op_constant => constantInstruction(@tagName(instruction), chunk, offset),
         _ => blk: {
             std.debug.print("Unknown opcode {d}\n", .{instruction});
