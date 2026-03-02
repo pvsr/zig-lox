@@ -8,24 +8,27 @@ pub fn disassembleChunk(chunk: Chunk, name: []const u8) void {
 
     var offset: usize = 0;
     while (offset < chunk.code.items.len) {
-        std.debug.print("{d:04} ", .{offset});
-
-        if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
-            std.debug.print("   | ", .{});
-        } else {
-            std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
-        }
-
-        const instruction: OpCode = @enumFromInt(chunk.code.items[offset]);
-        offset += switch (instruction) {
-            OpCode.op_return => simpleInstruction(@tagName(instruction)),
-            OpCode.op_constant => constantInstruction(@tagName(instruction), chunk, offset),
-            _ => blk: {
-                std.debug.print("Unknown opcode {d}\n", .{instruction});
-                break :blk 1;
-            },
-        };
+        offset = disassembleInstruction(chunk, offset);
     }
+}
+pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
+    std.debug.print("{d:04} ", .{offset});
+
+    if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
+        std.debug.print("   | ", .{});
+    } else {
+        std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
+    }
+
+    const instruction: OpCode = @enumFromInt(chunk.code.items[offset]);
+    return offset + switch (instruction) {
+        OpCode.op_return => simpleInstruction(@tagName(instruction)),
+        OpCode.op_constant => constantInstruction(@tagName(instruction), chunk, offset),
+        _ => blk: {
+            std.debug.print("Unknown opcode {d}\n", .{instruction});
+            break :blk 1;
+        },
+    };
 }
 
 fn simpleInstruction(name: []const u8) u8 {
