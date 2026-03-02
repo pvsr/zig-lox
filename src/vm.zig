@@ -16,16 +16,22 @@ pub const VM = struct {
     stack: std.ArrayList(value.Value),
     gpa: std.mem.Allocator,
 
-    pub fn init(gpa: std.mem.Allocator, chunk: *Chunk) !VM {
+    pub fn init(gpa: std.mem.Allocator) !VM {
         return VM{
-            .chunk = chunk,
-            .ip = chunk.code.items.ptr,
+            .chunk = undefined,
+            .ip = undefined,
             .stack = std.ArrayList(value.Value).empty,
             .gpa = gpa,
         };
     }
 
-    pub fn interpret(self: *VM) InterpretResult {
+    pub fn interpret(self: *VM, chunk: *Chunk) InterpretResult {
+        self.chunk = chunk;
+        self.ip = chunk.code.items.ptr;
+        return self.run();
+    }
+
+    fn run(self: *VM) InterpretResult {
         while (true) {
             if (DEBUG) {
                 std.debug.print("          ", .{});

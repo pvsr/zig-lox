@@ -24,6 +24,6 @@ pub fn main() !void {
     try c.write(allocator, @intFromEnum(chunk.OpCode.negate), 3);
     try c.write(allocator, @intFromEnum(chunk.OpCode.add), 3);
     try c.write(allocator, @intFromEnum(chunk.OpCode.@"return"), 3);
-    var v: vm.VM = try vm.VM.init(allocator, &c);
-    _ = v.interpret();
+    var v: vm.VM = try vm.VM.init(allocator);
+    _ = v.interpret(&c);
 }
