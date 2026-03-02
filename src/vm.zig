@@ -6,23 +6,22 @@ const value = @import("value.zig");
 
 pub const InterpretResult = enum { ok, compile_error, runtime_error };
 
-const DEBUG = true;
+const DEBUG = false;
 
 const STACK_MAX = 256;
 
 pub const VM = struct {
     chunk: *Chunk,
     ip: [*]u8,
-    stack: []value.Value,
-    stackTop: [*]value.Value,
+    stack: std.ArrayList(value.Value),
+    gpa: std.mem.Allocator,
 
     pub fn init(gpa: std.mem.Allocator, chunk: *Chunk) !VM {
-        const stack = try gpa.alloc(value.Value, STACK_MAX);
         return VM{
             .chunk = chunk,
             .ip = chunk.code.items.ptr,
-            .stack = stack,
-            .stackTop = stack.ptr,
+            .stack = std.ArrayList(value.Value).empty,
+            .gpa = gpa,
         };
     }
 
@@ -30,7 +29,7 @@ pub const VM = struct {
         while (true) {
             if (DEBUG) {
                 std.debug.print("          ", .{});
-                for (self.stack[0 .. self.stackTop - self.stack.ptr]) |slot| {
+                for (self.stack.items) |slot| {
                     std.debug.print("[ ", .{});
                     value.printValue(slot);
                     std.debug.print(" ]", .{});
@@ -72,12 +71,10 @@ pub const VM = struct {
     }
 
     fn push(self: *VM, val: value.Value) void {
-        self.stackTop[0] = val;
-        self.stackTop += 1;
+        self.stack.append(self.gpa, val) catch unreachable;
     }
 
     pub fn pop(self: *VM) value.Value {
-        self.stackTop -= 1;
-        return self.stackTop[0];
+        return self.stack.pop().?;
     }
 };
