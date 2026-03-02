@@ -39,17 +39,17 @@ pub const VM = struct {
             }
             const instruction: OpCode = @enumFromInt(self.read_byte());
             switch (instruction) {
-                OpCode.op_return => {
+                OpCode.@"return" => {
                     value.printValue(self.pop());
                     std.debug.print("\n", .{});
                     return InterpretResult.ok;
                 },
-                OpCode.op_negate => self.push(-self.pop()),
-                OpCode.op_add => self.push(self.pop() + self.pop()),
-                OpCode.op_subtract => self.push(self.pop() - self.pop()),
-                OpCode.op_multiply => self.push(self.pop() * self.pop()),
-                OpCode.op_divide => self.push(self.pop() / self.pop()),
-                OpCode.op_constant => {
+                OpCode.negate => self.push(-self.pop()),
+                OpCode.add => self.push(self.pop() + self.pop()),
+                OpCode.subtract => self.push(self.pop() - self.pop()),
+                OpCode.multiply => self.push(self.pop() * self.pop()),
+                OpCode.divide => self.push(self.pop() / self.pop()),
+                OpCode.constant => {
                     const constant = self.read_constant();
                     value.printValue(constant);
                     std.debug.print("\n", .{});
