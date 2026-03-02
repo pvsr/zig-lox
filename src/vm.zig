@@ -1,6 +1,8 @@
 const std = @import("std");
-const debug = @import("debug.zig");
+
 const Chunk = @import("chunk.zig").Chunk;
+const compiler = @import("compiler.zig");
+const debug = @import("debug.zig");
 const OpCode = @import("chunk.zig").OpCode;
 const value = @import("value.zig");
 
@@ -25,7 +27,27 @@ pub const VM = struct {
         };
     }
 
-    pub fn interpret(self: *VM, chunk: *Chunk) InterpretResult {
+    pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
+        compiler.compile(source);
+        var c = Chunk.init();
+        try c.constants.append(self.gpa, 2.1);
+        try c.constants.append(self.gpa, 1);
+        try c.constants.append(self.gpa, 0);
+        try c.write(self.gpa, @intFromEnum(OpCode.constant), 1);
+        try c.write(self.gpa, 0, 1);
+        try c.write(self.gpa, @intFromEnum(OpCode.constant), 2);
+        try c.write(self.gpa, 1, 2);
+        try c.write(self.gpa, @intFromEnum(OpCode.constant), 3);
+        try c.write(self.gpa, 2, 3);
+        try c.write(self.gpa, @intFromEnum(OpCode.constant), 3);
+        try c.write(self.gpa, 0, 3);
+        try c.write(self.gpa, @intFromEnum(OpCode.negate), 3);
+        try c.write(self.gpa, @intFromEnum(OpCode.add), 3);
+        try c.write(self.gpa, @intFromEnum(OpCode.@"return"), 3);
+        return self.interpretChunk(&c);
+    }
+
+    fn interpretChunk(self: *VM, chunk: *Chunk) InterpretResult {
         self.chunk = chunk;
         self.ip = chunk.code.items.ptr;
         return self.run();
