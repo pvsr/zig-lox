@@ -2,13 +2,13 @@ const std = @import("std");
 const Value = @import("value.zig").Value;
 
 pub const OpCode = enum(u8) {
-    op_constant,
-    op_return,
-    op_negate,
-    op_add,
-    op_subtract,
-    op_multiply,
-    op_divide,
+    constant,
+    @"return",
+    negate,
+    add,
+    subtract,
+    multiply,
+    divide,
     _,
 };
 

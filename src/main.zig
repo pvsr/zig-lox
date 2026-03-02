@@ -13,17 +13,17 @@ pub fn main() !void {
     try c.constants.append(allocator, 2.1);
     try c.constants.append(allocator, 1);
     try c.constants.append(allocator, 0);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_constant), 1);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.constant), 1);
     try c.write(allocator, 0, 1);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_constant), 2);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.constant), 2);
     try c.write(allocator, 1, 2);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_constant), 3);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.constant), 3);
     try c.write(allocator, 2, 3);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_constant), 3);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.constant), 3);
     try c.write(allocator, 0, 3);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_negate), 3);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_add), 3);
-    try c.write(allocator, @intFromEnum(chunk.OpCode.op_return), 3);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.negate), 3);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.add), 3);
+    try c.write(allocator, @intFromEnum(chunk.OpCode.@"return"), 3);
     var v: vm.VM = try vm.VM.init(allocator, &c);
     _ = v.interpret();
 }
