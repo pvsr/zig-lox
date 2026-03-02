@@ -46,6 +46,10 @@ pub const VM = struct {
                     return InterpretResult.ok;
                 },
                 OpCode.op_negate => self.push(-self.pop()),
+                OpCode.op_add => self.push(self.pop() + self.pop()),
+                OpCode.op_subtract => self.push(self.pop() - self.pop()),
+                OpCode.op_multiply => self.push(self.pop() * self.pop()),
+                OpCode.op_divide => self.push(self.pop() / self.pop()),
                 OpCode.op_constant => {
                     const constant = self.read_constant();
                     value.printValue(constant);
