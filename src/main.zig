@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const VM = @import("vm.zig").VM;
+const VM = @import("VM.zig");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
