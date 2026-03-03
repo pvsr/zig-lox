@@ -1,6 +1,6 @@
 const std = @import("std");
-const Chunk = @import("chunk.zig").Chunk;
-const OpCode = @import("chunk.zig").OpCode;
+
+const Chunk = @import("Chunk.zig");
 const value = @import("value.zig");
 
 pub fn disassembleChunk(chunk: Chunk, name: []const u8) void {
@@ -21,10 +21,10 @@ pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
         std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
     }
 
-    const instruction: OpCode = @enumFromInt(chunk.code.items[offset]);
+    const instruction: Chunk.OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {
-        OpCode.@"return", OpCode.negate, OpCode.add, OpCode.subtract, OpCode.multiply, OpCode.divide => simpleInstruction(@tagName(instruction)),
-        OpCode.constant => constantInstruction(@tagName(instruction), chunk, offset),
+        .@"return", .negate, .add, .subtract, .multiply, .divide => simpleInstruction(@tagName(instruction)),
+        .constant => constantInstruction(@tagName(instruction), chunk, offset),
         _ => blk: {
             std.debug.print("Unknown opcode {d}\n", .{instruction});
             break :blk 1;
