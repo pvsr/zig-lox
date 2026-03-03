@@ -3,7 +3,9 @@ const std = @import("std");
 const Chunk = @import("Chunk.zig");
 const value = @import("value.zig");
 
-pub fn disassembleChunk(chunk: Chunk, name: []const u8) void {
+pub const DEBUG = true;
+
+pub fn disassembleChunk(chunk: *Chunk, name: []const u8) void {
     std.debug.print("== {s} ==\n", .{name});
 
     var offset: usize = 0;
@@ -12,14 +14,15 @@ pub fn disassembleChunk(chunk: Chunk, name: []const u8) void {
     }
 }
 
-pub fn disassembleInstruction(chunk: Chunk, offset: usize) usize {
+pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
     std.debug.print("{d:04} ", .{offset});
 
-    if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
-        std.debug.print("   | ", .{});
-    } else {
-        std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
-    }
+    // TODO fix lines
+    // if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
+    //     std.debug.print("   | ", .{});
+    // } else {
+    //     std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
+    // }
 
     const instruction: Chunk.OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {
@@ -37,7 +40,7 @@ fn simpleInstruction(name: []const u8) u8 {
     return 1;
 }
 
-fn constantInstruction(name: []const u8, chunk: Chunk, offset: usize) u8 {
+fn constantInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
     const constant = chunk.code.items[offset + 1];
     std.debug.print("{s:<16} {d:4} '", .{ name, constant });
     value.printValue(chunk.constants.items[constant]);
