@@ -59,7 +59,7 @@ fn isAtEnd(self: Scanner) bool {
 }
 
 fn string(self: *Scanner) Token {
-    while (self.current[0] != '"' and !self.isAtEnd()) {
+    while (!self.isAtEnd() and self.current[0] != '"') {
         if (self.current[0] == '\n') self.line += 1;
         _ = self.advance();
     }
@@ -69,12 +69,12 @@ fn string(self: *Scanner) Token {
 }
 
 fn number(self: *Scanner) Token {
-    while (isDigit(self.current[0])) {
+    while (isDigit(self.peek())) {
         _ = self.advance();
     }
-    if (self.current[0] == '.' and !self.isAtEnd() and isDigit(self.current[1])) {
+    if (self.peek() == '.' and self.current.len > 1 and isDigit(self.current[1])) {
         _ = self.advance();
-        while (isDigit(self.current[0])) {
+        while (isDigit(self.peek())) {
             _ = self.advance();
         }
     }
@@ -82,7 +82,7 @@ fn number(self: *Scanner) Token {
 }
 
 fn identifier(self: *Scanner) Token {
-    while (isAlpha(self.current[0]) or isDigit(self.current[0])) {
+    while (isAlpha(self.peek()) or isDigit(self.peek())) {
         _ = self.advance();
     }
     return self.makeToken(self.identifierType());
@@ -151,16 +151,19 @@ fn advance(self: *Scanner) u8 {
     return c;
 }
 
+fn peek(self: *Scanner) u8 {
+    return if (self.isAtEnd()) undefined else self.current[0];
+}
+
 fn match(self: *Scanner, expected: u8) bool {
-    if (self.isAtEnd()) return false;
-    if (self.current[0] != expected) return false;
+    if (self.peek() != expected) return false;
     self.current = self.current[1..];
     return true;
 }
 
 fn skipWhitespace(self: *Scanner) void {
     while (true) {
-        switch (self.current[0]) {
+        switch (self.peek()) {
             ' ', '\r', '\t' => {
                 _ = self.advance();
             },
