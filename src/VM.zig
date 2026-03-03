@@ -10,7 +10,6 @@ const VM = @This();
 
 pub const InterpretResult = enum { ok, compile_error, runtime_error };
 
-const DEBUG = false;
 const STACK_MAX = 256;
 
 chunk: *Chunk,
@@ -28,34 +27,19 @@ pub fn init(gpa: std.mem.Allocator) !VM {
 }
 
 pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
-    compiler.compile(source);
-    var c = Chunk.init();
-    try c.constants.append(self.gpa, 2.1);
-    try c.constants.append(self.gpa, 1);
-    try c.constants.append(self.gpa, 0);
-    try c.write(self.gpa, @intFromEnum(OpCode.constant), 1);
-    try c.write(self.gpa, 0, 1);
-    try c.write(self.gpa, @intFromEnum(OpCode.constant), 2);
-    try c.write(self.gpa, 1, 2);
-    try c.write(self.gpa, @intFromEnum(OpCode.constant), 3);
-    try c.write(self.gpa, 2, 3);
-    try c.write(self.gpa, @intFromEnum(OpCode.constant), 3);
-    try c.write(self.gpa, 0, 3);
-    try c.write(self.gpa, @intFromEnum(OpCode.negate), 3);
-    try c.write(self.gpa, @intFromEnum(OpCode.add), 3);
-    try c.write(self.gpa, @intFromEnum(OpCode.@"return"), 3);
-    return self.interpretChunk(&c);
-}
-
-fn interpretChunk(self: *VM, chunk: *Chunk) InterpretResult {
-    self.chunk = chunk;
+    var chunk = Chunk.init(self.gpa);
+    // defer chunk.deinit();
+    if (!compiler.compile(source, &chunk)) {
+        return .compile_error;
+    }
+    self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
     return self.run();
 }
 
 fn run(self: *VM) InterpretResult {
     while (true) {
-        if (DEBUG) {
+        if (debug.DEBUG) {
             std.debug.print("          ", .{});
             for (self.stack.items) |slot| {
                 std.debug.print("[ ", .{});
@@ -63,7 +47,7 @@ fn run(self: *VM) InterpretResult {
                 std.debug.print(" ]", .{});
             }
             std.debug.print("\n", .{});
-            _ = debug.disassembleInstruction(self.chunk.*, self.ip - self.chunk.code.items.ptr);
+            _ = debug.disassembleInstruction(self.chunk, self.ip - self.chunk.code.items.ptr);
         }
         const instruction: OpCode = @enumFromInt(self.read_byte());
         switch (instruction) {
@@ -73,10 +57,7 @@ fn run(self: *VM) InterpretResult {
                 return InterpretResult.ok;
             },
             .negate => self.push(-self.pop()),
-            .add => self.push(self.pop() + self.pop()),
-            .subtract => self.push(self.pop() - self.pop()),
-            .multiply => self.push(self.pop() * self.pop()),
-            .divide => self.push(self.pop() / self.pop()),
+            .add, .subtract, .multiply, .divide => self.binary_op(instruction),
             .constant => {
                 const constant = self.read_constant();
                 value.printValue(constant);
@@ -86,6 +67,19 @@ fn run(self: *VM) InterpretResult {
             _ => std.debug.print("Unknown opcode {d}\n", .{instruction}),
         }
     }
+}
+
+fn binary_op(self: *VM, op: Chunk.OpCode) void {
+    const b = self.pop();
+    const a = self.pop();
+    const c = switch (op) {
+        .add => a + b,
+        .subtract => a - b,
+        .multiply => a * b,
+        .divide => a / b,
+        else => unreachable,
+    };
+    self.push(c);
 }
 
 fn read_byte(self: *VM) u8 {
