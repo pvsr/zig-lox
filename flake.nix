@@ -21,25 +21,7 @@
           pname = "lox";
           version = "0.0.1";
           src = ./.;
-          #     dontConfigure = true;
-          #     buildInputs = [ pkgs.janet ];
-          #     nativeBuildInputs = [ pkgs.makeWrapper ];
-          #     installPhase = ''
-          #       mkdir $out
-          #       JANET_PATH=$out janet --install .
-          #       mkdir -p $out/bin
-          #       mv bin/lox $out/bin/lox
-          #       wrapProgram $out/bin/lox --set JANET_PATH $out
-          #     '';
-          #     doInstallCheck = true;
-          #     installCheckPhase = ''
-          #       $out/bin/lox << EOF
-          #       fun add(x, y) {
-          #         return x + y;
-          #       }
-          #       print add(10, 5);
-          #       EOF | grep 15
-          #     '';
+          nativeBuildInputs = [ pkgs.zig_0_15 ];
           meta.mainProgram = "lox";
         };
         default = lox;
