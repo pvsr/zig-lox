@@ -35,6 +35,12 @@ pub fn init(gpa: std.mem.Allocator) Chunk {
     };
 }
 
+pub fn deinit(self: *Chunk) void {
+    self.code.deinit(self.gpa);
+    self.constants.deinit(self.gpa);
+    self.lines.deinit(self.gpa);
+}
+
 pub fn write(self: *Chunk, byte: u8, line: u32) void {
     self.code.append(self.gpa, byte) catch unreachable;
     self.lines.append(self.gpa, line) catch unreachable;

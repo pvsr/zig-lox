@@ -28,7 +28,7 @@ pub fn init(gpa: std.mem.Allocator) !VM {
 
 pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
     var chunk = Chunk.init(self.gpa);
-    // defer chunk.deinit();
+    defer chunk.deinit();
     if (!compiler.compile(source, &chunk)) {
         return .compile_error;
     }
