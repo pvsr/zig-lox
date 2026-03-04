@@ -111,6 +111,12 @@ const Parser = struct {
             .minus => self.emitByte(@intFromEnum(Chunk.OpCode.subtract)),
             .star => self.emitByte(@intFromEnum(Chunk.OpCode.multiply)),
             .slash => self.emitByte(@intFromEnum(Chunk.OpCode.divide)),
+            .bang_equal => self.emitBytes(@intFromEnum(Chunk.OpCode.equal), @intFromEnum(Chunk.OpCode.not)),
+            .equal_equal => self.emitByte(@intFromEnum(Chunk.OpCode.equal)),
+            .greater => self.emitByte(@intFromEnum(Chunk.OpCode.greater)),
+            .greater_equal => self.emitBytes(@intFromEnum(Chunk.OpCode.less), @intFromEnum(Chunk.OpCode.not)),
+            .less => self.emitByte(@intFromEnum(Chunk.OpCode.less)),
+            .less_equal => self.emitBytes(@intFromEnum(Chunk.OpCode.greater), @intFromEnum(Chunk.OpCode.not)),
             else => unreachable,
         }
     }
@@ -172,11 +178,6 @@ const Parser = struct {
             .infix = binary,
             .precedence = .factor,
         };
-        t[@intFromEnum(Token.Type.bang)] = ParseRule{
-            .prefix = unary,
-            .infix = null,
-            .precedence = .none,
-        };
         t[@intFromEnum(Token.Type.number)] = ParseRule{
             .prefix = number,
             .infix = null,
@@ -196,6 +197,41 @@ const Parser = struct {
             .prefix = literal,
             .infix = null,
             .precedence = .none,
+        };
+        t[@intFromEnum(Token.Type.bang)] = ParseRule{
+            .prefix = unary,
+            .infix = null,
+            .precedence = .none,
+        };
+        t[@intFromEnum(Token.Type.bang_equal)] = ParseRule{
+            .prefix = null,
+            .infix = binary,
+            .precedence = .equality,
+        };
+        t[@intFromEnum(Token.Type.equal_equal)] = ParseRule{
+            .prefix = null,
+            .infix = binary,
+            .precedence = .equality,
+        };
+        t[@intFromEnum(Token.Type.greater)] = ParseRule{
+            .prefix = null,
+            .infix = binary,
+            .precedence = .comparison,
+        };
+        t[@intFromEnum(Token.Type.greater_equal)] = ParseRule{
+            .prefix = null,
+            .infix = binary,
+            .precedence = .comparison,
+        };
+        t[@intFromEnum(Token.Type.less)] = ParseRule{
+            .prefix = null,
+            .infix = binary,
+            .precedence = .comparison,
+        };
+        t[@intFromEnum(Token.Type.less_equal)] = ParseRule{
+            .prefix = null,
+            .infix = binary,
+            .precedence = .comparison,
         };
         break :blk t;
     };

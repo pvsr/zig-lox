@@ -65,7 +65,7 @@ fn run(self: *VM) InterpretResult {
                     },
                 }
             },
-            .add, .subtract, .multiply, .divide => switch (self.binary_op(instruction)) {
+            .add, .subtract, .multiply, .divide, .greater, .less => switch (self.binary_op(instruction)) {
                 .ok => {},
                 else => |err| return err,
             },
@@ -79,22 +79,29 @@ fn run(self: *VM) InterpretResult {
             .nil => self.push(Value.nil),
             .true => self.push(Value{ .bool = true }),
             .false => self.push(Value{ .bool = false }),
+            .equal => {
+                const b = self.pop();
+                const a = self.pop();
+                self.push(Value{ .bool = a.equals(b) });
+            },
         }
     }
 }
 
 fn binary_op(self: *VM, op: Chunk.OpCode) InterpretResult {
     switch (self.pop()) {
-        .number => |a| switch (self.pop()) {
-            .number => |b| {
+        .number => |b| switch (self.pop()) {
+            .number => |a| {
                 const c = switch (op) {
-                    .add => a + b,
-                    .subtract => a - b,
-                    .multiply => a * b,
-                    .divide => a / b,
+                    .add => Value{ .number = a + b },
+                    .subtract => Value{ .number = a - b },
+                    .multiply => Value{ .number = a * b },
+                    .divide => Value{ .number = a / b },
+                    .greater => Value{ .bool = a > b },
+                    .less => Value{ .bool = a < b },
                     else => unreachable,
                 };
-                self.push(Value{ .number = c });
+                self.push(c);
                 return .ok;
             },
             else => |v| self.push(v),

@@ -1,6 +1,12 @@
 const std = @import("std");
 
-pub const Value = union(enum) {
+const Type = enum {
+    bool,
+    number,
+    nil,
+};
+
+pub const Value = union(Type) {
     bool: bool,
     number: f64,
     nil,
@@ -11,5 +17,21 @@ pub const Value = union(enum) {
             .number => |n| std.debug.print("{d}", .{n}),
             .nil => std.debug.print("nil", .{}),
         }
+    }
+
+    pub fn equals(self: Value, other: Value) bool {
+        if (self == .nil or other == .nil) return true;
+        switch (self) {
+            .number => |a| switch (other) {
+                .number => |b| return a == b,
+                else => {},
+            },
+            .bool => |a| switch (other) {
+                .bool => |b| return a == b,
+                else => {},
+            },
+            else => {},
+        }
+        return false;
     }
 };
