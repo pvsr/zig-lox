@@ -7,7 +7,6 @@ const Token = @import("Token.zig");
 const Value = @import("value.zig").Value;
 
 pub fn compile(source: []const u8, chunk: *Chunk) bool {
-    chunk.lines = undefined;
     var scanner = Scanner.init(source);
     var parser = Parser{
         .scanner = &scanner,

@@ -34,8 +34,7 @@ pub fn init(gpa: std.mem.Allocator) Chunk {
 
 pub fn write(self: *Chunk, byte: u8, line: u32) void {
     self.code.append(self.gpa, byte) catch unreachable;
-    _ = line;
-    // self.lines.append(self.gpa, line) catch unreachable;
+    self.lines.append(self.gpa, line) catch unreachable;
 }
 
 pub fn addConstant(self: *Chunk, value: Value) usize {

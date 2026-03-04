@@ -16,12 +16,11 @@ pub fn disassembleChunk(chunk: *Chunk, name: []const u8) void {
 pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
     std.debug.print("{d:04} ", .{offset});
 
-    // TODO fix lines
-    // if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
-    //     std.debug.print("   | ", .{});
-    // } else {
-    //     std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
-    // }
+    if (offset > 0 and chunk.lines.items[offset] == chunk.lines.items[offset - 1]) {
+        std.debug.print("   | ", .{});
+    } else {
+        std.debug.print("{d:4} ", .{chunk.lines.items[offset]});
+    }
 
     const instruction: Chunk.OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {

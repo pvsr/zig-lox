@@ -76,7 +76,7 @@ fn run(self: *VM) InterpretResult {
                 std.debug.print("\n", .{});
                 self.push(constant);
             },
-            .nil => self.push(Value{ .nil = undefined }),
+            .nil => self.push(Value.nil),
             .true => self.push(Value{ .bool = true }),
             .false => self.push(Value{ .bool = false }),
         }
@@ -135,9 +135,8 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) void {
     std.debug.print(message, args);
     std.debug.print("\n", .{});
 
-    // TODO
-    // const instruction = self.ip - self.chunk.code.items.ptr - 1;
-    // const line = self.chunk.lines.items[instruction];
-    // std.debug.print("[line {d}] in script\n", .{line});
+    const instruction = self.ip - self.chunk.code.items.ptr - 1;
+    const line = self.chunk.lines.items[instruction];
+    std.debug.print("[line {d}] in script\n", .{line});
     self.stack.clearRetainingCapacity();
 }
