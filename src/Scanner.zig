@@ -9,7 +9,7 @@ current: []const u8,
 line: u16,
 
 pub fn init(source: []const u8) Scanner {
-    return Scanner{
+    return .{
         .start = source,
         .current = source,
         .line = 1,
@@ -130,7 +130,7 @@ fn checkKeyword(self: Scanner, start: u32, rest: []const u8, tokenType: Token.Ty
 }
 
 fn makeToken(self: Scanner, tokenType: Token.Type) Token {
-    return Token{
+    return .{
         .type = tokenType,
         .slice = self.start[0..self.length()],
         .line = self.line,
@@ -138,7 +138,7 @@ fn makeToken(self: Scanner, tokenType: Token.Type) Token {
 }
 
 fn errorToken(self: Scanner, message: []const u8) Token {
-    return Token{
+    return .{
         .type = .err,
         .slice = message,
         .line = self.line,

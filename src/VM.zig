@@ -18,7 +18,7 @@ stack: std.ArrayList(Value),
 gpa: std.mem.Allocator,
 
 pub fn init(gpa: std.mem.Allocator) !VM {
-    return VM{
+    return .{
         .chunk = undefined,
         .ip = undefined,
         .stack = std.ArrayList(Value).empty,
@@ -58,7 +58,7 @@ fn run(self: *VM) InterpretResult {
             },
             .negate => {
                 switch (self.stack.getLast()) {
-                    .number => |a| self.push(Value{ .number = -a }),
+                    .number => |a| self.push(.{ .number = -a }),
                     else => {
                         self.runtimeError("Operand must be a number.", .{});
                         return .runtime_error;
@@ -69,7 +69,7 @@ fn run(self: *VM) InterpretResult {
                 .ok => {},
                 else => |err| return err,
             },
-            .not => self.push(Value{ .bool = isFalsey(self.pop()) }),
+            .not => self.push(.{ .bool = isFalsey(self.pop()) }),
             .constant => {
                 const constant = self.read_constant();
                 constant.print();
@@ -77,12 +77,12 @@ fn run(self: *VM) InterpretResult {
                 self.push(constant);
             },
             .nil => self.push(Value.nil),
-            .true => self.push(Value{ .bool = true }),
-            .false => self.push(Value{ .bool = false }),
+            .true => self.push(.{ .bool = true }),
+            .false => self.push(.{ .bool = false }),
             .equal => {
                 const b = self.pop();
                 const a = self.pop();
-                self.push(Value{ .bool = a.equals(b) });
+                self.push(.{ .bool = a.equals(b) });
             },
         }
     }
@@ -92,13 +92,13 @@ fn binary_op(self: *VM, op: Chunk.OpCode) InterpretResult {
     switch (self.pop()) {
         .number => |b| switch (self.pop()) {
             .number => |a| {
-                const c = switch (op) {
-                    .add => Value{ .number = a + b },
-                    .subtract => Value{ .number = a - b },
-                    .multiply => Value{ .number = a * b },
-                    .divide => Value{ .number = a / b },
-                    .greater => Value{ .bool = a > b },
-                    .less => Value{ .bool = a < b },
+                const c: Value = switch (op) {
+                    .add => .{ .number = a + b },
+                    .subtract => .{ .number = a - b },
+                    .multiply => .{ .number = a * b },
+                    .divide => .{ .number = a / b },
+                    .greater => .{ .bool = a > b },
+                    .less => .{ .bool = a < b },
                     else => unreachable,
                 };
                 self.push(c);

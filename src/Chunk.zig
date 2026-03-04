@@ -27,7 +27,7 @@ lines: std.ArrayList(u32),
 gpa: std.mem.Allocator,
 
 pub fn init(gpa: std.mem.Allocator) Chunk {
-    return Chunk{
+    return .{
         .code = std.ArrayList(u8).empty,
         .constants = std.ArrayList(Value).empty,
         .lines = std.ArrayList(u32).empty,

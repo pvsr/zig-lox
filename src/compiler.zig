@@ -157,82 +157,82 @@ const Parser = struct {
         };
         const count = @typeInfo(Token.Type).@"enum".fields.len;
         var t: [count]ParseRule = [_]ParseRule{default} ** count;
-        t[@intFromEnum(Token.Type.left_paren)] = ParseRule{
+        t[@intFromEnum(Token.Type.left_paren)] = .{
             .prefix = grouping,
             .infix = null,
             .precedence = .none,
         };
-        t[@intFromEnum(Token.Type.minus)] = ParseRule{
+        t[@intFromEnum(Token.Type.minus)] = .{
             .prefix = unary,
             .infix = binary,
             .precedence = .term,
         };
-        t[@intFromEnum(Token.Type.plus)] = ParseRule{
+        t[@intFromEnum(Token.Type.plus)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .term,
         };
-        t[@intFromEnum(Token.Type.slash)] = ParseRule{
+        t[@intFromEnum(Token.Type.slash)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .factor,
         };
-        t[@intFromEnum(Token.Type.star)] = ParseRule{
+        t[@intFromEnum(Token.Type.star)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .factor,
         };
-        t[@intFromEnum(Token.Type.number)] = ParseRule{
+        t[@intFromEnum(Token.Type.number)] = .{
             .prefix = number,
             .infix = null,
             .precedence = .none,
         };
-        t[@intFromEnum(Token.Type.kw_false)] = ParseRule{
+        t[@intFromEnum(Token.Type.kw_false)] = .{
             .prefix = literal,
             .infix = null,
             .precedence = .none,
         };
-        t[@intFromEnum(Token.Type.kw_true)] = ParseRule{
+        t[@intFromEnum(Token.Type.kw_true)] = .{
             .prefix = literal,
             .infix = null,
             .precedence = .none,
         };
-        t[@intFromEnum(Token.Type.kw_nil)] = ParseRule{
+        t[@intFromEnum(Token.Type.kw_nil)] = .{
             .prefix = literal,
             .infix = null,
             .precedence = .none,
         };
-        t[@intFromEnum(Token.Type.bang)] = ParseRule{
+        t[@intFromEnum(Token.Type.bang)] = .{
             .prefix = unary,
             .infix = null,
             .precedence = .none,
         };
-        t[@intFromEnum(Token.Type.bang_equal)] = ParseRule{
+        t[@intFromEnum(Token.Type.bang_equal)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .equality,
         };
-        t[@intFromEnum(Token.Type.equal_equal)] = ParseRule{
+        t[@intFromEnum(Token.Type.equal_equal)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .equality,
         };
-        t[@intFromEnum(Token.Type.greater)] = ParseRule{
+        t[@intFromEnum(Token.Type.greater)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .comparison,
         };
-        t[@intFromEnum(Token.Type.greater_equal)] = ParseRule{
+        t[@intFromEnum(Token.Type.greater_equal)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .comparison,
         };
-        t[@intFromEnum(Token.Type.less)] = ParseRule{
+        t[@intFromEnum(Token.Type.less)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .comparison,
         };
-        t[@intFromEnum(Token.Type.less_equal)] = ParseRule{
+        t[@intFromEnum(Token.Type.less_equal)] = .{
             .prefix = null,
             .infix = binary,
             .precedence = .comparison,
@@ -266,8 +266,8 @@ const Parser = struct {
     }
 
     fn number(self: *Parser) void {
-        const value = Value{ .number = std.fmt.parseFloat(f64, self.previous.slice) catch unreachable };
-        self.emitConstant(value);
+        const n = std.fmt.parseFloat(f64, self.previous.slice) catch unreachable;
+        self.emitConstant(.{ .number = n });
     }
 
     fn errorAtCurrent(self: *Parser, message: []const u8) void {
