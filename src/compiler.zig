@@ -116,6 +116,15 @@ const Parser = struct {
         }
     }
 
+    fn literal(self: *Parser) void {
+        switch (self.previous.type) {
+            .kw_false => self.emitByte(@intFromEnum(Chunk.OpCode.false)),
+            .kw_nil => self.emitByte(@intFromEnum(Chunk.OpCode.nil)),
+            .kw_true => self.emitByte(@intFromEnum(Chunk.OpCode.true)),
+            else => unreachable,
+        }
+    }
+
     fn grouping(self: *Parser) void {
         self.expression();
         self.consume(.right_paren, "Expect ')' after expression.");
@@ -126,6 +135,7 @@ const Parser = struct {
         self.parsePrecedence(.unary);
         switch (opType) {
             .minus => self.emitByte(@intFromEnum(Chunk.OpCode.negate)),
+            .bang => self.emitByte(@intFromEnum(Chunk.OpCode.not)),
             else => unreachable,
         }
     }
@@ -163,8 +173,28 @@ const Parser = struct {
             .infix = binary,
             .precedence = .factor,
         };
+        t[@intFromEnum(Token.Type.bang)] = ParseRule{
+            .prefix = unary,
+            .infix = null,
+            .precedence = .none,
+        };
         t[@intFromEnum(Token.Type.number)] = ParseRule{
             .prefix = number,
+            .infix = null,
+            .precedence = .none,
+        };
+        t[@intFromEnum(Token.Type.kw_false)] = ParseRule{
+            .prefix = literal,
+            .infix = null,
+            .precedence = .none,
+        };
+        t[@intFromEnum(Token.Type.kw_true)] = ParseRule{
+            .prefix = literal,
+            .infix = null,
+            .precedence = .none,
+        };
+        t[@intFromEnum(Token.Type.kw_nil)] = ParseRule{
+            .prefix = literal,
             .infix = null,
             .precedence = .none,
         };
@@ -197,7 +227,7 @@ const Parser = struct {
     }
 
     fn number(self: *Parser) void {
-        const value = std.fmt.parseFloat(Value, self.previous.slice) catch unreachable;
+        const value = Value{ .number = std.fmt.parseFloat(f64, self.previous.slice) catch unreachable };
         self.emitConstant(value);
     }
 

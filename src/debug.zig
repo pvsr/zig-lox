@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const Chunk = @import("Chunk.zig");
-const value = @import("value.zig");
 
 pub const DEBUG = true;
 
@@ -26,12 +25,8 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
 
     const instruction: Chunk.OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {
-        .@"return", .negate, .add, .subtract, .multiply, .divide => simpleInstruction(@tagName(instruction)),
         .constant => constantInstruction(@tagName(instruction), chunk, offset),
-        _ => blk: {
-            std.debug.print("Unknown opcode {d}\n", .{instruction});
-            break :blk 1;
-        },
+        else => simpleInstruction(@tagName(instruction)),
     };
 }
 
@@ -43,7 +38,7 @@ fn simpleInstruction(name: []const u8) u8 {
 fn constantInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
     const constant = chunk.code.items[offset + 1];
     std.debug.print("{s:<16} {d:4} '", .{ name, constant });
-    value.printValue(chunk.constants.items[constant]);
+    chunk.constants.items[constant].print();
     std.debug.print("'\n", .{});
     return 2;
 }

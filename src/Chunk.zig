@@ -6,13 +6,16 @@ const Chunk = @This();
 
 pub const OpCode = enum(u8) {
     constant,
+    nil,
+    true,
+    false,
     @"return",
+    not,
     negate,
     add,
     subtract,
     multiply,
     divide,
-    _,
 };
 
 code: std.ArrayList(u8),

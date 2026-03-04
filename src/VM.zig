@@ -4,7 +4,7 @@ const Chunk = @import("Chunk.zig");
 const OpCode = Chunk.OpCode;
 const compiler = @import("compiler.zig");
 const debug = @import("debug.zig");
-const value = @import("value.zig");
+const Value = @import("value.zig").Value;
 
 const VM = @This();
 
@@ -14,14 +14,14 @@ const STACK_MAX = 256;
 
 chunk: *Chunk,
 ip: [*]u8,
-stack: std.ArrayList(value.Value),
+stack: std.ArrayList(Value),
 gpa: std.mem.Allocator,
 
 pub fn init(gpa: std.mem.Allocator) !VM {
     return VM{
         .chunk = undefined,
         .ip = undefined,
-        .stack = std.ArrayList(value.Value).empty,
+        .stack = std.ArrayList(Value).empty,
         .gpa = gpa,
     };
 }
@@ -43,7 +43,7 @@ fn run(self: *VM) InterpretResult {
             std.debug.print("          ", .{});
             for (self.stack.items) |slot| {
                 std.debug.print("[ ", .{});
-                value.printValue(slot);
+                slot.print();
                 std.debug.print(" ]", .{});
             }
             std.debug.print("\n", .{});
@@ -52,34 +52,57 @@ fn run(self: *VM) InterpretResult {
         const instruction: OpCode = @enumFromInt(self.read_byte());
         switch (instruction) {
             .@"return" => {
-                value.printValue(self.pop());
+                self.pop().print();
                 std.debug.print("\n", .{});
                 return InterpretResult.ok;
             },
-            .negate => self.push(-self.pop()),
-            .add, .subtract, .multiply, .divide => self.binary_op(instruction),
+            .negate => {
+                switch (self.stack.getLast()) {
+                    .number => |a| self.push(Value{ .number = -a }),
+                    else => {
+                        self.runtimeError("Operand must be a number.", .{});
+                        return .runtime_error;
+                    },
+                }
+            },
+            .add, .subtract, .multiply, .divide => switch (self.binary_op(instruction)) {
+                .ok => {},
+                else => |err| return err,
+            },
+            .not => self.push(Value{ .bool = isFalsey(self.pop()) }),
             .constant => {
                 const constant = self.read_constant();
-                value.printValue(constant);
+                constant.print();
                 std.debug.print("\n", .{});
                 self.push(constant);
             },
-            _ => std.debug.print("Unknown opcode {d}\n", .{instruction}),
+            .nil => self.push(Value{ .nil = undefined }),
+            .true => self.push(Value{ .bool = true }),
+            .false => self.push(Value{ .bool = false }),
         }
     }
 }
 
-fn binary_op(self: *VM, op: Chunk.OpCode) void {
-    const b = self.pop();
-    const a = self.pop();
-    const c = switch (op) {
-        .add => a + b,
-        .subtract => a - b,
-        .multiply => a * b,
-        .divide => a / b,
-        else => unreachable,
-    };
-    self.push(c);
+fn binary_op(self: *VM, op: Chunk.OpCode) InterpretResult {
+    switch (self.pop()) {
+        .number => |a| switch (self.pop()) {
+            .number => |b| {
+                const c = switch (op) {
+                    .add => a + b,
+                    .subtract => a - b,
+                    .multiply => a * b,
+                    .divide => a / b,
+                    else => unreachable,
+                };
+                self.push(Value{ .number = c });
+                return .ok;
+            },
+            else => |v| self.push(v),
+        },
+        else => |v| self.push(v),
+    }
+    self.runtimeError("Operands must be numbers.", .{});
+    return .runtime_error;
 }
 
 fn read_byte(self: *VM) u8 {
@@ -88,14 +111,33 @@ fn read_byte(self: *VM) u8 {
     return byte;
 }
 
-fn read_constant(self: *VM) value.Value {
+fn read_constant(self: *VM) Value {
     return self.chunk.constants.items[self.read_byte()];
 }
 
-fn push(self: *VM, val: value.Value) void {
+fn push(self: *VM, val: Value) void {
     self.stack.append(self.gpa, val) catch unreachable;
 }
 
-pub fn pop(self: *VM) value.Value {
+pub fn pop(self: *VM) Value {
     return self.stack.pop().?;
+}
+
+fn isFalsey(value: Value) bool {
+    return switch (value) {
+        .nil => true,
+        .bool => |b| !b,
+        else => false,
+    };
+}
+
+fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) void {
+    std.debug.print(message, args);
+    std.debug.print("\n", .{});
+
+    // TODO
+    // const instruction = self.ip - self.chunk.code.items.ptr - 1;
+    // const line = self.chunk.lines.items[instruction];
+    // std.debug.print("[line {d}] in script\n", .{line});
+    self.stack.clearRetainingCapacity();
 }
