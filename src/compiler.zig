@@ -67,22 +67,26 @@ const Parser = struct {
         self.currentChunk().write(byte, self.previous.line);
     }
 
-    fn emitOp(self: *Parser, op: Chunk.OpCode, byte: u8) void {
+    fn emitOp(self: *Parser, op: Chunk.OpCode) void {
         self.emitByte(@intFromEnum(op));
+    }
+
+    fn emitOps(self: *Parser, op1: Chunk.OpCode, op2: Chunk.OpCode) void {
+        self.emitOp(op1);
+        self.emitOp(op2);
+    }
+
+    fn emitOp1(self: *Parser, op: Chunk.OpCode, byte: u8) void {
+        self.emitOp(op);
         self.emitByte(byte);
     }
 
-    fn emitBytes(self: *Parser, byte1: u8, byte2: u8) void {
-        self.emitByte(byte1);
-        self.emitByte(byte2);
-    }
-
     fn emitReturn(self: *Parser) void {
-        self.emitByte(@intFromEnum(Chunk.OpCode.@"return"));
+        self.emitOp(.@"return");
     }
 
     fn emitConstant(self: *Parser, value: Value) void {
-        self.emitOp(.constant, self.makeConstant(value));
+        self.emitOp1(.constant, self.makeConstant(value));
     }
 
     fn makeConstant(self: *Parser, value: Value) u8 {
@@ -107,25 +111,25 @@ const Parser = struct {
         self.parsePrecedence(@enumFromInt(@intFromEnum(rule.precedence) + 1));
 
         switch (opType) {
-            .plus => self.emitByte(@intFromEnum(Chunk.OpCode.add)),
-            .minus => self.emitByte(@intFromEnum(Chunk.OpCode.subtract)),
-            .star => self.emitByte(@intFromEnum(Chunk.OpCode.multiply)),
-            .slash => self.emitByte(@intFromEnum(Chunk.OpCode.divide)),
-            .bang_equal => self.emitBytes(@intFromEnum(Chunk.OpCode.equal), @intFromEnum(Chunk.OpCode.not)),
-            .equal_equal => self.emitByte(@intFromEnum(Chunk.OpCode.equal)),
-            .greater => self.emitByte(@intFromEnum(Chunk.OpCode.greater)),
-            .greater_equal => self.emitBytes(@intFromEnum(Chunk.OpCode.less), @intFromEnum(Chunk.OpCode.not)),
-            .less => self.emitByte(@intFromEnum(Chunk.OpCode.less)),
-            .less_equal => self.emitBytes(@intFromEnum(Chunk.OpCode.greater), @intFromEnum(Chunk.OpCode.not)),
+            .plus => self.emitOp(.add),
+            .minus => self.emitOp(.subtract),
+            .star => self.emitOp(.multiply),
+            .slash => self.emitOp(.divide),
+            .bang_equal => self.emitOps(.equal, .not),
+            .equal_equal => self.emitOp(.equal),
+            .greater => self.emitOp(.greater),
+            .greater_equal => self.emitOps(.less, .not),
+            .less => self.emitOp(.less),
+            .less_equal => self.emitOps(.greater, .not),
             else => unreachable,
         }
     }
 
     fn literal(self: *Parser) void {
         switch (self.previous.type) {
-            .kw_false => self.emitByte(@intFromEnum(Chunk.OpCode.false)),
-            .kw_nil => self.emitByte(@intFromEnum(Chunk.OpCode.nil)),
-            .kw_true => self.emitByte(@intFromEnum(Chunk.OpCode.true)),
+            .kw_false => self.emitOp(.false),
+            .kw_nil => self.emitOp(.nil),
+            .kw_true => self.emitOp(.true),
             else => unreachable,
         }
     }
@@ -139,8 +143,8 @@ const Parser = struct {
         const opType = self.previous.type;
         self.parsePrecedence(.unary);
         switch (opType) {
-            .minus => self.emitByte(@intFromEnum(Chunk.OpCode.negate)),
-            .bang => self.emitByte(@intFromEnum(Chunk.OpCode.not)),
+            .minus => self.emitOp(.negate),
+            .bang => self.emitOp(.not),
             else => unreachable,
         }
     }
