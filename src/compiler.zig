@@ -5,9 +5,11 @@ const debug = @import("debug.zig");
 const Scanner = @import("Scanner.zig");
 const Token = @import("Token.zig");
 const Value = @import("value.zig").Value;
+const Obj = @import("value.zig").Obj;
 
-pub fn compile(source: []const u8, chunk: *Chunk) bool {
+pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct { bool, *std.SinglyLinkedList } {
     var scanner = Scanner.init(source);
+    var objects = std.SinglyLinkedList{};
     var parser = Parser{
         .scanner = &scanner,
         .compilingChunk = chunk,
@@ -15,12 +17,14 @@ pub fn compile(source: []const u8, chunk: *Chunk) bool {
         .previous = undefined,
         .hadError = false,
         .panicMode = false,
+        .objects = &objects,
+        .gpa = gpa,
     };
     parser.advance();
     parser.expression();
     parser.consume(.eof, "Expect end of expression.");
     parser.endCompiler();
-    return !parser.hadError;
+    return .{ !parser.hadError, parser.objects };
 }
 
 const Precedence = enum { none, assignment, @"or", @"and", equality, comparison, term, factor, unary, call, primary };
@@ -40,6 +44,8 @@ const Parser = struct {
     previous: Token,
     hadError: bool,
     panicMode: bool,
+    objects: *std.SinglyLinkedList,
+    gpa: std.mem.Allocator,
 
     fn advance(self: *Parser) void {
         self.previous = self.current;
@@ -237,6 +243,11 @@ const Parser = struct {
             .infix = binary,
             .precedence = .comparison,
         };
+        t[@intFromEnum(Token.Type.string)] = .{
+            .prefix = string,
+            .infix = null,
+            .precedence = .none,
+        };
         break :blk t;
     };
 
@@ -268,6 +279,12 @@ const Parser = struct {
     fn number(self: *Parser) void {
         const n = std.fmt.parseFloat(f64, self.previous.slice) catch unreachable;
         self.emitConstant(.{ .number = n });
+    }
+
+    fn string(self: *Parser) void {
+        const str = self.previous.slice[1 .. self.previous.slice.len - 1];
+        const dupe = self.gpa.dupe(u8, str) catch unreachable;
+        self.emitConstant(.string(self.gpa, self.objects, dupe));
     }
 
     fn errorAtCurrent(self: *Parser, message: []const u8) void {

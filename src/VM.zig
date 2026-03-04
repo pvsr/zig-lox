@@ -4,6 +4,7 @@ const Chunk = @import("Chunk.zig");
 const OpCode = Chunk.OpCode;
 const compiler = @import("compiler.zig");
 const debug = @import("debug.zig");
+const Obj = @import("value.zig").Obj;
 const Value = @import("value.zig").Value;
 
 const VM = @This();
@@ -15,6 +16,7 @@ const STACK_MAX = 256;
 chunk: *Chunk,
 ip: [*]u8,
 stack: std.ArrayList(Value),
+objects: *std.SinglyLinkedList,
 gpa: std.mem.Allocator,
 
 pub fn init(gpa: std.mem.Allocator) !VM {
@@ -22,6 +24,7 @@ pub fn init(gpa: std.mem.Allocator) !VM {
         .chunk = undefined,
         .ip = undefined,
         .stack = std.ArrayList(Value).empty,
+        .objects = undefined,
         .gpa = gpa,
     };
 }
@@ -29,11 +32,24 @@ pub fn init(gpa: std.mem.Allocator) !VM {
 pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
     var chunk = Chunk.init(self.gpa);
     defer chunk.deinit();
-    if (!compiler.compile(source, &chunk)) {
+    const success, const objects = compiler.compile(self.gpa, source, &chunk);
+    if (!success) {
         return .compile_error;
     }
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
+    self.objects = objects;
+    defer {
+        var it = objects.first;
+        while (it) |node| {
+            const object: *Obj = @fieldParentPtr("node", node);
+            switch (object.obj) {
+                .string => |str| self.gpa.free(str),
+            }
+            defer self.gpa.destroy(object);
+            it = node.next;
+        }
+    }
     return self.run();
 }
 
@@ -49,7 +65,7 @@ fn run(self: *VM) InterpretResult {
             std.debug.print("\n", .{});
             _ = debug.disassembleInstruction(self.chunk, self.ip - self.chunk.code.items.ptr);
         }
-        const instruction: OpCode = @enumFromInt(self.read_byte());
+        const instruction: OpCode = @enumFromInt(self.readByte());
         switch (instruction) {
             .@"return" => {
                 self.pop().print();
@@ -65,13 +81,17 @@ fn run(self: *VM) InterpretResult {
                     },
                 }
             },
-            .add, .subtract, .multiply, .divide, .greater, .less => switch (self.binary_op(instruction)) {
+            .add => switch (self.addOrConcat()) {
+                .ok => {},
+                else => |err| return err,
+            },
+            .subtract, .multiply, .divide, .greater, .less => switch (self.binaryOp(instruction)) {
                 .ok => {},
                 else => |err| return err,
             },
             .not => self.push(.{ .bool = isFalsey(self.pop()) }),
             .constant => {
-                const constant = self.read_constant();
+                const constant = self.readConstant();
                 constant.print();
                 std.debug.print("\n", .{});
                 self.push(constant);
@@ -88,7 +108,34 @@ fn run(self: *VM) InterpretResult {
     }
 }
 
-fn binary_op(self: *VM, op: Chunk.OpCode) InterpretResult {
+fn addOrConcat(self: *VM) InterpretResult {
+    switch (self.pop()) {
+        .number => |b| switch (self.pop()) {
+            .number => |a| {
+                self.push(.{ .number = a + b });
+                return .ok;
+            },
+            else => |v| self.push(v),
+        },
+        .obj => |o2| switch (o2.obj) {
+            .string => |b| switch (self.pop()) {
+                .obj => |o1| switch (o1.obj) {
+                    .string => |a| {
+                        const str = std.mem.concat(self.gpa, u8, &[_][]const u8{ a, b }) catch unreachable;
+                        self.push(.string(self.gpa, self.objects, str));
+                        return .ok;
+                    },
+                },
+                else => |v| self.push(v),
+            },
+        },
+        else => {},
+    }
+    self.runtimeError("Operands must be two numbers or two strings.", .{});
+    return .runtime_error;
+}
+
+fn binaryOp(self: *VM, op: Chunk.OpCode) InterpretResult {
     switch (self.pop()) {
         .number => |b| switch (self.pop()) {
             .number => |a| {
@@ -112,14 +159,14 @@ fn binary_op(self: *VM, op: Chunk.OpCode) InterpretResult {
     return .runtime_error;
 }
 
-fn read_byte(self: *VM) u8 {
+fn readByte(self: *VM) u8 {
     const byte = self.ip[0];
     self.ip += 1;
     return byte;
 }
 
-fn read_constant(self: *VM) Value {
-    return self.chunk.constants.items[self.read_byte()];
+fn readConstant(self: *VM) Value {
+    return self.chunk.constants.items[self.readByte()];
 }
 
 fn push(self: *VM, val: Value) void {
