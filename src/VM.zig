@@ -49,6 +49,7 @@ pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
             defer self.gpa.destroy(object);
             it = node.next;
         }
+        self.gpa.destroy(objects);
     }
     return self.run();
 }

@@ -9,7 +9,8 @@ const Obj = @import("value.zig").Obj;
 
 pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct { bool, *std.SinglyLinkedList } {
     var scanner = Scanner.init(source);
-    var objects = std.SinglyLinkedList{};
+    const objects = gpa.create(std.SinglyLinkedList) catch unreachable;
+    objects.* = std.SinglyLinkedList{};
     var parser = Parser{
         .scanner = &scanner,
         .compilingChunk = chunk,
@@ -17,7 +18,7 @@ pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct
         .previous = undefined,
         .hadError = false,
         .panicMode = false,
-        .objects = &objects,
+        .objects = objects,
         .gpa = gpa,
     };
     parser.advance();
