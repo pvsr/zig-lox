@@ -26,7 +26,7 @@ fn repl(vm: *VM) !void {
 
         std.debug.print("> ", .{});
         if (stdin.interface.streamDelimiter(&w, '\n')) |len| {
-            _ = try vm.interpret(line[0..len]);
+            try vm.interpret(line[0..len]);
         } else |err| switch (err) {
             error.EndOfStream => return,
             else => unreachable,
@@ -37,11 +37,12 @@ fn repl(vm: *VM) !void {
 fn runFile(vm: *VM, path: []const u8) !void {
     const source = try readFile(vm.gpa, path);
     defer vm.gpa.free(source);
-    switch (try vm.interpret(source)) {
-        .ok => {},
-        .compile_error => std.process.exit(65),
-        .runtime_error => std.process.exit(70),
-    }
+    vm.interpret(source) catch |err| {
+        switch (err) {
+            VM.InterpreterError.CompileError => std.process.exit(65),
+            VM.InterpreterError.RuntimeError => std.process.exit(70),
+        }
+    };
 }
 
 fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {

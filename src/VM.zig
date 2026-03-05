@@ -9,7 +9,7 @@ const Value = @import("value.zig").Value;
 
 const VM = @This();
 
-pub const InterpretResult = enum { ok, compile_error, runtime_error };
+pub const InterpreterError = error{ CompileError, RuntimeError };
 
 const STACK_MAX = 256;
 
@@ -29,12 +29,12 @@ pub fn init(gpa: std.mem.Allocator) !VM {
     };
 }
 
-pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
+pub fn interpret(self: *VM, source: []const u8) !void {
     var chunk = Chunk.init(self.gpa);
     defer chunk.deinit();
 
     const hadError, const objects = compiler.compile(self.gpa, source, &chunk);
-    if (hadError) return .compile_error;
+    if (hadError) return InterpreterError.CompileError;
 
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
@@ -54,7 +54,7 @@ pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
     return self.run();
 }
 
-fn run(self: *VM) InterpretResult {
+fn run(self: *VM) !void {
     while (true) {
         if (debug.DEBUG) {
             std.debug.print("          ", .{});
@@ -71,25 +71,16 @@ fn run(self: *VM) InterpretResult {
             .@"return" => {
                 self.pop().print();
                 std.debug.print("\n", .{});
-                return InterpretResult.ok;
+                return;
             },
             .negate => {
                 switch (self.stack.getLast()) {
                     .number => |a| self.push(.{ .number = -a }),
-                    else => {
-                        self.runtimeError("Operand must be a number.", .{});
-                        return .runtime_error;
-                    },
+                    else => return self.runtimeError("Operand must be a number.", .{}),
                 }
             },
-            .add => switch (self.addOrConcat()) {
-                .ok => {},
-                else => |err| return err,
-            },
-            .subtract, .multiply, .divide, .greater, .less => switch (self.binaryOp(instruction)) {
-                .ok => {},
-                else => |err| return err,
-            },
+            .add => try self.addOrConcat(),
+            .subtract, .multiply, .divide, .greater, .less => try self.binaryOp(instruction),
             .not => self.push(.{ .bool = isFalsey(self.pop()) }),
             .constant => {
                 const constant = self.readConstant();
@@ -109,12 +100,12 @@ fn run(self: *VM) InterpretResult {
     }
 }
 
-fn addOrConcat(self: *VM) InterpretResult {
+fn addOrConcat(self: *VM) !void {
     switch (self.pop()) {
         .number => |b| switch (self.pop()) {
             .number => |a| {
                 self.push(.{ .number = a + b });
-                return .ok;
+                return;
             },
             else => |v| self.push(v),
         },
@@ -124,7 +115,7 @@ fn addOrConcat(self: *VM) InterpretResult {
                     .string => |a| {
                         const str = std.mem.concat(self.gpa, u8, &[_][]const u8{ a, b }) catch unreachable;
                         self.push(.string(self.gpa, self.objects, str));
-                        return .ok;
+                        return;
                     },
                 },
                 else => |v| self.push(v),
@@ -132,11 +123,10 @@ fn addOrConcat(self: *VM) InterpretResult {
         },
         else => {},
     }
-    self.runtimeError("Operands must be two numbers or two strings.", .{});
-    return .runtime_error;
+    return self.runtimeError("Operands must be two numbers or two strings.", .{});
 }
 
-fn binaryOp(self: *VM, op: Chunk.OpCode) InterpretResult {
+fn binaryOp(self: *VM, op: Chunk.OpCode) !void {
     switch (self.pop()) {
         .number => |b| switch (self.pop()) {
             .number => |a| {
@@ -150,14 +140,13 @@ fn binaryOp(self: *VM, op: Chunk.OpCode) InterpretResult {
                     else => unreachable,
                 };
                 self.push(c);
-                return .ok;
+                return;
             },
             else => |v| self.push(v),
         },
         else => |v| self.push(v),
     }
-    self.runtimeError("Operands must be numbers.", .{});
-    return .runtime_error;
+    return self.runtimeError("Operands must be numbers.", .{});
 }
 
 fn readByte(self: *VM) u8 {
@@ -186,7 +175,7 @@ fn isFalsey(value: Value) bool {
     };
 }
 
-fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) void {
+fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) InterpreterError {
     std.debug.print(message, args);
     std.debug.print("\n", .{});
 
@@ -194,4 +183,5 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) void {
     const line = self.chunk.lines.items[instruction];
     std.debug.print("[line {d}] in script\n", .{line});
     self.stack.clearRetainingCapacity();
+    return InterpreterError.RuntimeError;
 }
