@@ -24,7 +24,7 @@ pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct
     parser.expression();
     parser.consume(.eof, "Expect end of expression.");
     parser.endCompiler();
-    return .{ !parser.hadError, parser.objects };
+    return .{ parser.hadError, parser.objects };
 }
 
 const Parser = struct {

@@ -32,10 +32,10 @@ pub fn init(gpa: std.mem.Allocator) !VM {
 pub fn interpret(self: *VM, source: []const u8) !InterpretResult {
     var chunk = Chunk.init(self.gpa);
     defer chunk.deinit();
-    const success, const objects = compiler.compile(self.gpa, source, &chunk);
-    if (!success) {
-        return .compile_error;
-    }
+
+    const hadError, const objects = compiler.compile(self.gpa, source, &chunk);
+    if (hadError) return .compile_error;
+
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
     self.objects = objects;
