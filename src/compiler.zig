@@ -27,16 +27,6 @@ pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct
     return .{ !parser.hadError, parser.objects };
 }
 
-const Precedence = enum { none, assignment, @"or", @"and", equality, comparison, term, factor, unary, call, primary };
-
-const ParseFn = *const fn (parser: *Parser) void;
-
-const ParseRule = struct {
-    prefix: ?ParseFn,
-    infix: ?ParseFn,
-    precedence: Precedence,
-};
-
 const Parser = struct {
     scanner: *Scanner,
     compilingChunk: *Chunk,
@@ -111,9 +101,11 @@ const Parser = struct {
         }
     }
 
+    const rules = ParseRules.init();
+
     fn binary(self: *Parser) void {
         const opType = self.previous.type;
-        const rule = getRule(opType);
+        const rule = rules.get(opType);
         self.parsePrecedence(@enumFromInt(@intFromEnum(rule.precedence) + 1));
 
         switch (opType) {
@@ -155,121 +147,76 @@ const Parser = struct {
         }
     }
 
-    const rules = blk: {
+    const Precedence = enum { none, assignment, @"or", @"and", equality, comparison, term, factor, unary, call, primary };
+
+    const ParseFn = *const fn (parser: *Parser) void;
+
+    const ParseRule = struct {
+        prefix: ?ParseFn,
+        infix: ?ParseFn,
+        precedence: Precedence,
+
         const default = ParseRule{
             .prefix = null,
             .infix = null,
             .precedence = .none,
         };
+    };
+
+    const ParseRules = struct {
         const count = @typeInfo(Token.Type).@"enum".fields.len;
-        var t: [count]ParseRule = [_]ParseRule{default} ** count;
-        t[@intFromEnum(Token.Type.left_paren)] = .{
-            .prefix = grouping,
-            .infix = null,
-            .precedence = .none,
-        };
-        t[@intFromEnum(Token.Type.minus)] = .{
-            .prefix = unary,
-            .infix = binary,
-            .precedence = .term,
-        };
-        t[@intFromEnum(Token.Type.plus)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .term,
-        };
-        t[@intFromEnum(Token.Type.slash)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .factor,
-        };
-        t[@intFromEnum(Token.Type.star)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .factor,
-        };
-        t[@intFromEnum(Token.Type.number)] = .{
-            .prefix = number,
-            .infix = null,
-            .precedence = .none,
-        };
-        t[@intFromEnum(Token.Type.kw_false)] = .{
-            .prefix = literal,
-            .infix = null,
-            .precedence = .none,
-        };
-        t[@intFromEnum(Token.Type.kw_true)] = .{
-            .prefix = literal,
-            .infix = null,
-            .precedence = .none,
-        };
-        t[@intFromEnum(Token.Type.kw_nil)] = .{
-            .prefix = literal,
-            .infix = null,
-            .precedence = .none,
-        };
-        t[@intFromEnum(Token.Type.bang)] = .{
-            .prefix = unary,
-            .infix = null,
-            .precedence = .none,
-        };
-        t[@intFromEnum(Token.Type.bang_equal)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .equality,
-        };
-        t[@intFromEnum(Token.Type.equal_equal)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .equality,
-        };
-        t[@intFromEnum(Token.Type.greater)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .comparison,
-        };
-        t[@intFromEnum(Token.Type.greater_equal)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .comparison,
-        };
-        t[@intFromEnum(Token.Type.less)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .comparison,
-        };
-        t[@intFromEnum(Token.Type.less_equal)] = .{
-            .prefix = null,
-            .infix = binary,
-            .precedence = .comparison,
-        };
-        t[@intFromEnum(Token.Type.string)] = .{
-            .prefix = string,
-            .infix = null,
-            .precedence = .none,
-        };
-        break :blk t;
+        rules: [count]ParseRule,
+
+        fn init() ParseRules {
+            var r = ParseRules{ .rules = [_]ParseRule{ParseRule.default} ** count };
+            r.add(.left_paren, grouping, null, .none);
+            r.add(.minus, unary, binary, .term);
+            r.add(.plus, null, binary, .term);
+            r.add(.slash, null, binary, .factor);
+            r.add(.star, null, binary, .factor);
+            r.add(.number, number, null, .none);
+            r.add(.kw_false, literal, null, .none);
+            r.add(.kw_true, literal, null, .none);
+            r.add(.kw_nil, literal, null, .none);
+            r.add(.bang, unary, null, .none);
+            r.add(.bang_equal, null, binary, .equality);
+            r.add(.equal_equal, null, binary, .equality);
+            r.add(.greater, null, binary, .comparison);
+            r.add(.greater_equal, null, binary, .comparison);
+            r.add(.less, null, binary, .comparison);
+            r.add(.less_equal, null, binary, .comparison);
+            r.add(.string, string, null, .none);
+            return r;
+        }
+
+        fn add(self: *ParseRules, tokenType: Token.Type, prefix: ?ParseFn, infix: ?ParseFn, precedence: Precedence) void {
+            self.rules[@intFromEnum(tokenType)] = .{
+                .prefix = prefix,
+                .infix = infix,
+                .precedence = precedence,
+            };
+        }
+
+        fn get(self: ParseRules, tokenType: Token.Type) ParseRule {
+            return self.rules[@intFromEnum(tokenType)];
+        }
     };
 
     fn parsePrecedence(self: *Parser, precedence: Precedence) void {
         self.advance();
-        if (getRule(self.previous.type).prefix) |prefixRule| {
+        if (rules.get(self.previous.type).prefix) |prefixRule| {
             prefixRule(self);
         } else {
             self.@"error"("Expect expression.");
             return;
         }
 
-        while (@intFromEnum(precedence) <= @intFromEnum(getRule(self.current.type).precedence)) {
+        while (@intFromEnum(precedence) <= @intFromEnum(rules.get(self.current.type).precedence)) {
             self.advance();
-            if (getRule(self.previous.type).infix) |infixRule| {
+            if (rules.get(self.previous.type).infix) |infixRule| {
                 infixRule(self);
             }
         }
-    }
-
-    fn getRule(tokenType: Token.Type) ParseRule {
-        return rules[@intFromEnum(tokenType)];
     }
 
     fn expression(self: *Parser) void {
