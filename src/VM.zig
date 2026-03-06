@@ -41,13 +41,9 @@ pub fn interpret(self: *VM, source: []const u8) !void {
     self.objects = objects;
     defer {
         var it = objects.first;
-        while (it) |node| {
-            const object: *Obj = @fieldParentPtr("node", node);
-            switch (object.obj) {
-                .string => |str| self.gpa.free(str),
-            }
-            defer self.gpa.destroy(object);
-            it = node.next;
+        while (it) |node| : (it = node.next) {
+            var object: *Obj = @fieldParentPtr("node", node);
+            object.deinit(self.gpa);
         }
         self.gpa.destroy(objects);
     }
@@ -109,17 +105,13 @@ fn addOrConcat(self: *VM) !void {
             },
             else => |v| self.push(v),
         },
-        .obj => |o2| switch (o2.obj) {
-            .string => |b| switch (self.pop()) {
-                .obj => |o1| switch (o1.obj) {
-                    .string => |a| {
-                        const str = std.mem.concat(self.gpa, u8, &[_][]const u8{ a, b }) catch unreachable;
-                        self.push(.string(self.gpa, self.objects, str));
-                        return;
-                    },
-                },
-                else => |v| self.push(v),
+        .str => |b| switch (self.pop()) {
+            .str => |a| {
+                const str = std.mem.concat(self.gpa, u8, &[_][]const u8{ a.slice, b.slice }) catch unreachable;
+                self.push(.string(self.gpa, self.objects, str));
+                return;
             },
+            else => |v| self.push(v),
         },
         else => {},
     }

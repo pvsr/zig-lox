@@ -1,30 +1,40 @@
 const std = @import("std");
 
+pub const Str = struct {
+    obj: Obj,
+    slice: []const u8,
+
+    pub fn init(s: []const u8) Str {
+        return .{
+            .obj = .{
+                .type = .string,
+            },
+            .slice = s,
+        };
+    }
+
+    pub fn deinit(self: *Str, gpa: std.mem.Allocator) void {
+        gpa.free(self.slice);
+        gpa.destroy(self);
+    }
+
+    pub fn equals(self: Str, other: Str) bool {
+        return std.mem.eql(u8, self.slice, other.slice);
+    }
+};
+
 pub const Obj = struct {
     const Type = enum { string };
 
+    type: Type,
     node: std.SinglyLinkedList.Node = .{},
-    obj: union(Obj.Type) {
-        string: []const u8,
-    },
 
-    pub fn string(str: []const u8) Obj {
-        return .{ .obj = .{ .string = str } };
-    }
-
-    fn print(self: Obj) void {
-        switch (self.obj) {
-            .string => |s| std.debug.print("{s}", .{s}),
-        }
-    }
-
-    fn equals(self: Obj, other: Obj) bool {
-        switch (self.obj) {
-            .string => |a| switch (other.obj) {
-                .string => |b| return std.mem.eql(u8, a, b),
-            },
-        }
-        return false;
+    pub fn deinit(self: *Obj, gpa: std.mem.Allocator) void {
+        const P = switch (self.type) {
+            .string => Str,
+        };
+        var parent: *P = @fieldParentPtr("obj", self);
+        parent.deinit(gpa);
     }
 };
 
@@ -32,28 +42,28 @@ pub const Value = union(Type) {
     const Type = enum {
         bool,
         number,
-        obj,
+        str,
         nil,
     };
 
     bool: bool,
     number: f64,
-    obj: Obj,
+    str: Str,
     nil,
 
-    pub fn string(gpa: std.mem.Allocator, objects: *std.SinglyLinkedList, str: []const u8) Value {
-        var obj = gpa.create(Obj) catch unreachable;
-        obj.* = .string(str);
-        objects.prepend(&obj.node);
-        return .{ .obj = obj.* };
+    pub fn string(gpa: std.mem.Allocator, objects: *std.SinglyLinkedList, slice: []const u8) Value {
+        var str = gpa.create(Str) catch unreachable;
+        str.* = .init(slice);
+        objects.prepend(&str.obj.node);
+        return .{ .str = str.* };
     }
 
     pub fn print(self: Value) void {
         switch (self) {
             .bool => |b| std.debug.print("{}", .{b}),
             .number => |n| std.debug.print("{d}", .{n}),
+            .str => |s| std.debug.print("{s}", .{s.slice}),
             .nil => std.debug.print("nil", .{}),
-            .obj => |o| o.print(),
         }
     }
 
@@ -68,8 +78,8 @@ pub const Value = union(Type) {
                 .bool => |b| return a == b,
                 else => {},
             },
-            .obj => |a| switch (other) {
-                .obj => |b| return a.equals(b),
+            .str => |a| switch (other) {
+                .str => |b| return a.equals(b),
                 else => {},
             },
             else => {},
