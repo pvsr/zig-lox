@@ -3,9 +3,8 @@ const std = @import("std");
 const VM = @import("VM.zig");
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+    var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
+    const allocator = debug_allocator.allocator();
     var vm = try VM.init(allocator);
     switch (std.os.argv.len) {
         1 => try repl(&vm),
@@ -15,6 +14,8 @@ pub fn main() !void {
             std.process.exit(64);
         },
     }
+    vm.stack.deinit(vm.gpa);
+    _ = debug_allocator.detectLeaks();
 }
 
 fn repl(vm: *VM) !void {
