@@ -4,12 +4,11 @@ const Chunk = @import("Chunk.zig");
 const debug = @import("debug.zig");
 const Scanner = @import("Scanner.zig");
 const Token = @import("Token.zig");
+const Objects = @import("Objects.zig");
 const Value = @import("value.zig").Value;
 
-pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct { bool, *std.SinglyLinkedList } {
+pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk, objects: *Objects) bool {
     var scanner = Scanner.init(source);
-    const objects = gpa.create(std.SinglyLinkedList) catch unreachable;
-    objects.* = std.SinglyLinkedList{};
     var parser = Parser{
         .scanner = &scanner,
         .compilingChunk = chunk,
@@ -24,7 +23,7 @@ pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk) struct
     parser.expression();
     parser.consume(.eof, "Expect end of expression.");
     parser.endCompiler();
-    return .{ parser.hadError, parser.objects };
+    return !parser.hadError;
 }
 
 const Parser = struct {
@@ -34,7 +33,7 @@ const Parser = struct {
     previous: Token,
     hadError: bool,
     panicMode: bool,
-    objects: *std.SinglyLinkedList,
+    objects: *Objects,
     gpa: std.mem.Allocator,
 
     fn advance(self: *Parser) void {
@@ -230,8 +229,7 @@ const Parser = struct {
 
     fn string(self: *Parser) void {
         const str = self.previous.slice[1 .. self.previous.slice.len - 1];
-        const dupe = self.gpa.dupe(u8, str) catch unreachable;
-        self.emitConstant(.string(self.gpa, self.objects, dupe));
+        self.emitConstant(.copyStr(self.gpa, self.objects, str));
     }
 
     fn errorAtCurrent(self: *Parser, message: []const u8) void {

@@ -4,7 +4,9 @@ const Chunk = @import("Chunk.zig");
 const OpCode = Chunk.OpCode;
 const compiler = @import("compiler.zig");
 const debug = @import("debug.zig");
-const Obj = @import("value.zig").Obj;
+const Obj = @import("object.zig").Obj;
+const Objects = @import("Objects.zig");
+const Table = @import("table.zig").Table;
 const Value = @import("value.zig").Value;
 
 const VM = @This();
@@ -16,7 +18,7 @@ const STACK_MAX = 256;
 chunk: *Chunk,
 ip: [*]u8,
 stack: std.ArrayList(Value),
-objects: *std.SinglyLinkedList,
+objects: *Objects,
 gpa: std.mem.Allocator,
 
 pub fn init(gpa: std.mem.Allocator) !VM {
@@ -34,24 +36,17 @@ pub fn deinit(self: *VM) void {
 }
 
 pub fn interpret(self: *VM, source: []const u8) !void {
-    var chunk = Chunk.init(self.gpa);
+    var chunk: Chunk = .init(self.gpa);
     defer chunk.deinit();
 
-    const hadError, const objects = compiler.compile(self.gpa, source, &chunk);
-    if (hadError) return InterpreterError.CompileError;
+    var objects: Objects = .init(self.gpa);
+    if (!compiler.compile(self.gpa, source, &chunk, &objects))
+        return InterpreterError.CompileError;
 
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
-    self.objects = objects;
-    defer {
-        var it = objects.first;
-        while (it) |node| {
-            var object: *Obj = @fieldParentPtr("node", node);
-            defer object.deinit(self.gpa);
-            it = node.next;
-        }
-        self.gpa.destroy(objects);
-    }
+    self.objects = &objects;
+    defer objects.deinit(self.gpa);
     return self.run();
 }
 
@@ -113,7 +108,7 @@ fn addOrConcat(self: *VM) !void {
         .str => |b| switch (self.pop()) {
             .str => |a| {
                 const str = std.mem.concat(self.gpa, u8, &[_][]const u8{ a.slice, b.slice }) catch unreachable;
-                self.push(.string(self.gpa, self.objects, str));
+                self.push(.ownedStr(self.gpa, self.objects, str));
                 return;
             },
             else => |v| self.push(v),
@@ -186,6 +181,9 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) Interpre
 test {
     var vm = try VM.init(std.testing.allocator);
     defer vm.deinit();
+    try vm.interpret(
+        \\"=" + "=" + "=" + ("=" + "=" + "=")
+    );
     try vm.interpret(
         \\"hello " + "to" + " " + "read" + "ers" + " " + "of the vm tests"
     );

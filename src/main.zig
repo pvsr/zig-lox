@@ -15,7 +15,6 @@ pub fn main() !void {
         },
     }
     vm.deinit();
-    _ = debug_allocator.detectLeaks();
 }
 
 fn repl(vm: *VM) !void {

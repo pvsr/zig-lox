@@ -1,43 +1,8 @@
 const std = @import("std");
 
-pub const Str = struct {
-    obj: Obj,
-    hash: u64 = 0,
-    slice: []const u8,
-
-    pub fn init(s: []const u8) Str {
-        return .{
-            .obj = .{
-                .type = .string,
-            },
-            .slice = s,
-        };
-    }
-
-    pub fn deinit(self: *Str, gpa: std.mem.Allocator) void {
-        gpa.free(self.slice);
-        gpa.destroy(self);
-    }
-
-    pub fn equals(self: Str, other: Str) bool {
-        return std.mem.eql(u8, self.slice, other.slice);
-    }
-};
-
-pub const Obj = struct {
-    const Type = enum { string };
-
-    type: Type,
-    node: std.SinglyLinkedList.Node = .{},
-
-    pub fn deinit(self: *Obj, gpa: std.mem.Allocator) void {
-        const P = switch (self.type) {
-            .string => Str,
-        };
-        var parent: *P = @fieldParentPtr("obj", self);
-        parent.deinit(gpa);
-    }
-};
+const Obj = @import("object.zig").Obj;
+const Objects = @import("Objects.zig");
+const Str = @import("object.zig").Str;
 
 pub const Value = union(Type) {
     const Type = enum {
@@ -52,11 +17,16 @@ pub const Value = union(Type) {
     str: Str,
     nil,
 
-    pub fn string(gpa: std.mem.Allocator, objects: *std.SinglyLinkedList, slice: []const u8) Value {
-        var str = gpa.create(Str) catch unreachable;
-        str.* = .init(slice);
-        objects.prepend(&str.obj.node);
-        return .{ .str = str.* };
+    pub fn ownedStr(gpa: std.mem.Allocator, objects: *Objects, slice: []const u8) Value {
+        return createStr(gpa, objects, slice, true);
+    }
+
+    pub fn copyStr(gpa: std.mem.Allocator, objects: *Objects, slice: []const u8) Value {
+        return createStr(gpa, objects, slice, false);
+    }
+
+    fn createStr(gpa: std.mem.Allocator, objects: *Objects, slice: []const u8, owned: bool) Value {
+        return .{ .str = objects.createStr(gpa, slice, owned).* };
     }
 
     pub fn print(self: Value) void {
@@ -69,35 +39,25 @@ pub const Value = union(Type) {
     }
 
     pub fn equals(self: Value, other: Value) bool {
-        switch (self) {
-            .number => |a| switch (other) {
-                .number => |b| return a == b,
-                else => {},
-            },
-            .bool => |a| switch (other) {
-                .bool => |b| return a == b,
-                else => {},
-            },
-            .str => |a| switch (other) {
-                .str => |b| return a.equals(b),
-                else => {},
-            },
-            .nil => switch (other) {
-                .nil => return true,
-                else => {},
-            },
-        }
-        return false;
+        return switch (self) {
+            .number => other == .number and self.number == other.number,
+            .bool => other == .bool and self.bool == other.bool,
+            .str => other == .str and self.str.slice.ptr == other.str.slice.ptr,
+            .nil => other == .nil,
+        };
     }
 };
 
 test {
+    const gpa = std.testing.allocator;
+    var objects = Objects.init(gpa);
+    defer objects.deinit(gpa);
     const t: Value = .{ .bool = true };
     const f: Value = .{ .bool = false };
     const x: Value = .{ .number = 0 };
     const y: Value = .{ .number = 15.5 };
-    const s1: Value = .{ .str = .init("123") };
-    const s2: Value = .{ .str = .init("abc") };
+    const s1: Value = .copyStr(gpa, &objects, "123");
+    const s2: Value = .copyStr(gpa, &objects, "abc");
     const nil: Value = .nil;
     try std.testing.expect(!t.equals(f));
     try std.testing.expect(t.equals(.{ .bool = true }));
@@ -108,9 +68,12 @@ test {
     try std.testing.expect(y.equals(.{ .number = 15.5 }));
     try std.testing.expect(!s1.equals(s2));
     try std.testing.expect(!s1.equals(y));
-    try std.testing.expect(s1.equals(.{ .str = .init("123") }));
-    try std.testing.expect(s2.equals(.{ .str = .init("abc") }));
+    try std.testing.expect(s1.equals(s1));
+    try std.testing.expect(s1.equals(.copyStr(gpa, &objects, "123")));
+    try std.testing.expect(s2.equals(.copyStr(gpa, &objects, "abc")));
+    try std.testing.expect(!s1.equals(.copyStr(gpa, &objects, "")));
     try std.testing.expect(nil.equals(.nil));
     try std.testing.expect(!nil.equals(t));
     try std.testing.expect(!nil.equals(f));
+    try std.testing.expect(!nil.equals(x));
 }

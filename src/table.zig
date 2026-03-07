@@ -1,48 +1,47 @@
 const std = @import("std");
 
-const Str = @import("value.zig").Str;
+const Str = @import("object.zig").Str;
 const Value = @import("value.zig").Value;
 
-const StrContext = struct {
-    ctx: std.hash_map.StringContext = .{},
+pub fn hash(s: []const u8) u64 {
+    return std.hash.Wyhash.hash(0, s);
+}
 
-    pub fn hash(self: StrContext, str: *Str) u64 {
-        if (str.hash == 0) {
-            var h = self.ctx.hash(str.slice);
-            if (h == 0) h = 1;
-            str.hash = h;
-        }
+const StrContext = struct {
+    pub fn hash(self: StrContext, str: Str) u64 {
+        _ = self;
         return str.hash;
     }
 
-    pub fn eql(self: StrContext, a: *Str, b: *Str) bool {
-        return self.ctx.eql(a.slice, b.slice);
+    pub fn eql(self: StrContext, a: Str, b: Str) bool {
+        _ = self;
+        return std.mem.eql(u8, a.slice, b.slice);
     }
 };
 
-const Table = std.HashMap(*Str, Value, StrContext, std.hash_map.default_max_load_percentage);
+pub const Table = std.HashMap(Str, Value, StrContext, std.hash_map.default_max_load_percentage);
 
 test {
     var table = Table.init(std.testing.allocator);
     defer table.deinit();
-    var t = Str.init("true");
-    var f = Str.init("false");
-    var x = Str.init("x");
-    var y = Str.init("y");
-    var s1 = Str.init("");
-    var s2 = Str.init("   ");
-    var none = Str.init("none");
-    try table.put(&t, .{ .bool = true });
-    try table.put(&f, .{ .bool = false });
-    try table.put(&x, .{ .number = 0 });
-    try table.put(&y, .{ .number = 15.5 });
-    try table.put(&s1, .{ .str = .init("123") });
-    try table.put(&s2, .{ .str = .init("abc") });
-    try std.testing.expect(table.get(&t).?.equals(.{ .bool = true }));
-    try std.testing.expect(table.get(&f).?.equals(.{ .bool = false }));
-    try std.testing.expect(table.get(&x).?.equals(.{ .number = 0 }));
-    try std.testing.expect(table.get(&y).?.equals(.{ .number = 15.5 }));
-    try std.testing.expect(table.get(&s1).?.equals(.{ .str = .init("123") }));
-    try std.testing.expect(table.get(&s2).?.equals(.{ .str = .init("abc") }));
-    try std.testing.expect(table.get(&none) == null);
+    const t = Str.init("true");
+    const f = Str.init("false");
+    const x = Str.init("x");
+    const y = Str.init("y");
+    const s1 = Str.init("");
+    const s2 = Str.init("   ");
+    const none = Str.init("none");
+    try table.put(t, .{ .bool = true });
+    try table.put(f, .{ .bool = false });
+    try table.put(x, .{ .number = 0 });
+    try table.put(y, .{ .number = 15.5 });
+    try table.put(s1, .{ .str = .init("123") });
+    try table.put(s2, .{ .str = .init("abc") });
+    try std.testing.expectEqual(table.get(t).?.bool, true);
+    try std.testing.expectEqual(table.get(f).?.bool, false);
+    try std.testing.expectEqual(table.get(x).?.number, 0);
+    try std.testing.expectEqual(table.get(y).?.number, 15.5);
+    try std.testing.expectEqual(table.get(s1).?.str.slice, "123");
+    try std.testing.expectEqual(table.get(s2).?.str.slice, "abc");
+    try std.testing.expectEqual(table.get(none), null);
 }
