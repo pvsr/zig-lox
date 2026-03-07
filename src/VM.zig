@@ -29,6 +29,10 @@ pub fn init(gpa: std.mem.Allocator) !VM {
     };
 }
 
+pub fn deinit(self: *VM) void {
+    self.stack.deinit(self.gpa);
+}
+
 pub fn interpret(self: *VM, source: []const u8) !void {
     var chunk = Chunk.init(self.gpa);
     defer chunk.deinit();
@@ -41,9 +45,10 @@ pub fn interpret(self: *VM, source: []const u8) !void {
     self.objects = objects;
     defer {
         var it = objects.first;
-        while (it) |node| : (it = node.next) {
+        while (it) |node| {
             var object: *Obj = @fieldParentPtr("node", node);
-            object.deinit(self.gpa);
+            defer object.deinit(self.gpa);
+            it = node.next;
         }
         self.gpa.destroy(objects);
     }
@@ -176,4 +181,12 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) Interpre
     std.debug.print("[line {d}] in script\n", .{line});
     self.stack.clearRetainingCapacity();
     return InterpreterError.RuntimeError;
+}
+
+test {
+    var vm = try VM.init(std.testing.allocator);
+    defer vm.deinit();
+    try vm.interpret(
+        \\"hello " + "to" + " " + "read" + "ers" + " " + "of the vm tests"
+    );
 }

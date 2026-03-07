@@ -14,7 +14,7 @@ pub fn main() !void {
             std.process.exit(64);
         },
     }
-    vm.stack.deinit(vm.gpa);
+    vm.deinit();
     _ = debug_allocator.detectLeaks();
 }
 
