@@ -2,6 +2,7 @@ const std = @import("std");
 
 pub const Str = struct {
     obj: Obj,
+    hash: u64 = 0,
     slice: []const u8,
 
     pub fn init(s: []const u8) Str {
