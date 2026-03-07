@@ -69,7 +69,6 @@ pub const Value = union(Type) {
     }
 
     pub fn equals(self: Value, other: Value) bool {
-        if (self == .nil or other == .nil) return true;
         switch (self) {
             .number => |a| switch (other) {
                 .number => |b| return a == b,
@@ -83,8 +82,35 @@ pub const Value = union(Type) {
                 .str => |b| return a.equals(b),
                 else => {},
             },
-            else => {},
+            .nil => switch (other) {
+                .nil => return true,
+                else => {},
+            },
         }
         return false;
     }
 };
+
+test {
+    const t: Value = .{ .bool = true };
+    const f: Value = .{ .bool = false };
+    const x: Value = .{ .number = 0 };
+    const y: Value = .{ .number = 15.5 };
+    const s1: Value = .{ .str = .init("123") };
+    const s2: Value = .{ .str = .init("abc") };
+    const nil: Value = .nil;
+    try std.testing.expect(!t.equals(f));
+    try std.testing.expect(t.equals(.{ .bool = true }));
+    try std.testing.expect(f.equals(.{ .bool = false }));
+    try std.testing.expect(!x.equals(y));
+    try std.testing.expect(!x.equals(t));
+    try std.testing.expect(x.equals(.{ .number = 0 }));
+    try std.testing.expect(y.equals(.{ .number = 15.5 }));
+    try std.testing.expect(!s1.equals(s2));
+    try std.testing.expect(!s1.equals(y));
+    try std.testing.expect(s1.equals(.{ .str = .init("123") }));
+    try std.testing.expect(s2.equals(.{ .str = .init("abc") }));
+    try std.testing.expect(nil.equals(.nil));
+    try std.testing.expect(!nil.equals(t));
+    try std.testing.expect(!nil.equals(f));
+}
