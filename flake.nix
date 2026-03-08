@@ -18,24 +18,24 @@
     {
       packages = forAllSystems (
         _: pkgs: rec {
-          lox = pkgs.stdenv.mkDerivation {
-            pname = "lox";
+          zlox = pkgs.stdenv.mkDerivation {
+            pname = "zlox";
             version = "0.0.1";
             src = ./.;
             nativeBuildInputs = [ pkgs.zig_0_15 ];
-            meta.mainProgram = "lox";
+            meta.mainProgram = "zlox";
             doCheck = true;
           };
-          default = lox;
+          default = zlox;
         }
       );
 
       checks = forAllSystems (
         system: pkgs: {
-          default = pkgs.runCommand "zig-lox-test" { } ''
+          default = pkgs.runCommand "zlox-test" { } ''
             echo 'print "hello" + " " + "world";' | ${
               self.packages.${system}.default
-            }/bin/lox 2>&1| grep 'hello world'
+            }/bin/zlox 2>&1| grep 'hello world'
             touch $out
           '';
         }
@@ -43,11 +43,11 @@
 
       apps = forAllSystems (
         system: pkgs: {
-          lox = {
+          zlox = {
             type = "app";
-            program = pkgs.lib.getExe self.packages.${system}.lox;
+            program = pkgs.lib.getExe self.packages.${system}.zlox;
           };
-          default = self.apps.${system}.lox;
+          default = self.apps.${system}.zlox;
         }
       );
 
