@@ -13,36 +13,54 @@
           "aarch64-darwin"
           "x86_64-darwin"
           "x86_64-linux"
-        ] (system: mkOutputs nixpkgs.legacyPackages.${system});
+        ] (system: mkOutputs system nixpkgs.legacyPackages.${system});
     in
     {
-      packages = forAllSystems (pkgs: rec {
-        lox = pkgs.stdenv.mkDerivation {
-          pname = "lox";
-          version = "0.0.1";
-          src = ./.;
-          nativeBuildInputs = [ pkgs.zig_0_15 ];
-          meta.mainProgram = "lox";
-        };
-        default = lox;
-      });
+      packages = forAllSystems (
+        _: pkgs: rec {
+          lox = pkgs.stdenv.mkDerivation {
+            pname = "lox";
+            version = "0.0.1";
+            src = ./.;
+            nativeBuildInputs = [ pkgs.zig_0_15 ];
+            meta.mainProgram = "lox";
+            doCheck = true;
+          };
+          default = lox;
+        }
+      );
 
-      apps = forAllSystems (pkgs: {
-        lox = {
-          type = "app";
-          program = pkgs.lib.getExe self.packages.${pkgs.system}.lox;
-        };
-        default = self.apps.${pkgs.system}.lox;
-      });
+      checks = forAllSystems (
+        system: pkgs: {
+          default = pkgs.runCommand "zig-lox-test" { } ''
+            echo 'print "hello" + " " + "world";' | ${
+              self.packages.${system}.default
+            }/bin/lox 2>&1| grep 'hello world'
+            touch $out
+          '';
+        }
+      );
 
-      devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell {
-          packages = with self.packages.${pkgs.system}; [
-            pkgs.zig
-            pkgs.zls
-            # lox
-          ];
-        };
-      });
+      apps = forAllSystems (
+        system: pkgs: {
+          lox = {
+            type = "app";
+            program = pkgs.lib.getExe self.packages.${system}.lox;
+          };
+          default = self.apps.${system}.lox;
+        }
+      );
+
+      devShells = forAllSystems (
+        system: pkgs: {
+          default = pkgs.mkShell {
+            packages = [
+              pkgs.zig
+              pkgs.zls
+              pkgs.watchexec
+            ];
+          };
+        }
+      );
     };
 }
