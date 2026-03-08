@@ -56,3 +56,7 @@ fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
         std.process.exit(74);
     }
 }
+
+test {
+    _ = @import("VM.zig");
+}
