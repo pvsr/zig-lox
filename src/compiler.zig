@@ -14,6 +14,7 @@ pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk, object
         .compilingChunk = chunk,
         .current = undefined,
         .previous = undefined,
+        .canAssign = false,
         .hadError = false,
         .panicMode = false,
         .objects = objects,
@@ -32,6 +33,7 @@ const Parser = struct {
     compilingChunk: *Chunk,
     current: Token,
     previous: Token,
+    canAssign: bool,
     hadError: bool,
     panicMode: bool,
     objects: *Objects,
@@ -153,7 +155,27 @@ const Parser = struct {
         }
     }
 
-    const Precedence = enum { none, assignment, @"or", @"and", equality, comparison, term, factor, unary, call, primary };
+    const Precedence = enum {
+        none,
+        assignment,
+        @"or",
+        @"and",
+        equality,
+        comparison,
+        term,
+        factor,
+        unary,
+        call,
+        primary,
+
+        pub fn lte(self: Precedence, other: Precedence) bool {
+            return @intFromEnum(self) <= @intFromEnum(other);
+        }
+
+        pub fn canAssign(self: Precedence) bool {
+            return self.lte(.assignment);
+        }
+    };
 
     const ParseFn = *const fn (parser: *Parser) void;
 
@@ -210,6 +232,7 @@ const Parser = struct {
     };
 
     fn parsePrecedence(self: *Parser, precedence: Precedence) void {
+        self.canAssign = precedence.canAssign();
         self.advance();
         if (rules.get(self.previous.type).prefix) |prefixRule| {
             prefixRule(self);
@@ -218,11 +241,15 @@ const Parser = struct {
             return;
         }
 
-        while (@intFromEnum(precedence) <= @intFromEnum(rules.get(self.current.type).precedence)) {
+        while (precedence.lte(rules.get(self.current.type).precedence)) {
             self.advance();
             if (rules.get(self.previous.type).infix) |infixRule| {
                 infixRule(self);
             }
+        }
+
+        if (self.canAssign and self.match(.equal)) {
+            self.@"error"("Invalid assignment target");
         }
     }
 
@@ -309,7 +336,12 @@ const Parser = struct {
 
     fn namedVariable(self: *Parser, name: Token) void {
         const arg = self.identifierConstant(name);
-        self.emitOp1(.get_global, arg);
+        if (self.canAssign and self.match(.equal)) {
+            self.expression();
+            self.emitOp1(.set_global, arg);
+        } else {
+            self.emitOp1(.get_global, arg);
+        }
     }
 
     fn variable(self: *Parser) void {

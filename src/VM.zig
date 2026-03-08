@@ -103,6 +103,14 @@ fn run(self: *VM) !void {
                 self.globals.put(self.readConstant().str, self.peek(0)) catch unreachable;
                 _ = self.pop();
             },
+            .set_global => {
+                const name = self.readConstant().str;
+                const r = self.globals.getOrPut(name) catch unreachable;
+                if (!r.found_existing) {
+                    return self.runtimeError("Undefined variable '{s}'\n", .{name.slice});
+                }
+                r.value_ptr.* = self.peek(0);
+            },
             .equal => {
                 const b = self.pop();
                 const a = self.pop();
