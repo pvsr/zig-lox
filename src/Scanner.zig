@@ -152,7 +152,7 @@ fn advance(self: *Scanner) u8 {
 }
 
 fn peek(self: *Scanner) u8 {
-    return if (self.isAtEnd()) undefined else self.current[0];
+    return if (self.isAtEnd()) 0 else self.current[0];
 }
 
 fn match(self: *Scanner, expected: u8) bool {
