@@ -40,13 +40,13 @@ pub fn interpret(self: *VM, source: []const u8) !void {
     defer chunk.deinit();
 
     var objects: Objects = .init(self.gpa);
+    defer objects.deinit(self.gpa);
     if (!compiler.compile(self.gpa, source, &chunk, &objects))
         return InterpreterError.CompileError;
 
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
     self.objects = &objects;
-    defer objects.deinit(self.gpa);
     return self.run();
 }
 
@@ -64,11 +64,11 @@ fn run(self: *VM) !void {
         }
         const instruction: OpCode = @enumFromInt(self.readByte());
         switch (instruction) {
-            .@"return" => {
+            .print => {
                 self.pop().print();
                 std.debug.print("\n", .{});
-                return;
             },
+            .@"return" => return,
             .negate => {
                 switch (self.stack.getLast()) {
                     .number => |a| self.push(.{ .number = -a }),
@@ -87,6 +87,7 @@ fn run(self: *VM) !void {
             .nil => self.push(Value.nil),
             .true => self.push(.{ .bool = true }),
             .false => self.push(.{ .bool = false }),
+            .pop => _ = self.pop(),
             .equal => {
                 const b = self.pop();
                 const a = self.pop();
@@ -182,9 +183,9 @@ test {
     var vm = try VM.init(std.testing.allocator);
     defer vm.deinit();
     try vm.interpret(
-        \\"=" + "=" + "=" + ("=" + "=" + "=")
+        \\print "=" + "=" + "=" + ("=" + "=" + "=");
     );
     try vm.interpret(
-        \\"hello " + "to" + " " + "read" + "ers" + " " + "of the vm tests"
+        \\print "hello " + "to" + " " + "read" + "ers" + " " + "of the vm tests";
     );
 }

@@ -20,8 +20,9 @@ pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk, object
         .gpa = gpa,
     };
     parser.advance();
-    parser.expression();
-    parser.consume(.eof, "Expect end of expression.");
+    while (!parser.match(.eof)) {
+        parser.declaration();
+    }
     parser.endCompiler();
     return !parser.hadError;
 }
@@ -52,6 +53,12 @@ const Parser = struct {
             return;
         }
         self.errorAtCurrent(message);
+    }
+
+    fn match(self: *Parser, token_type: Token.Type) bool {
+        if (self.current.type != token_type) return false;
+        self.advance();
+        return true;
     }
 
     fn currentChunk(self: *Parser) *Chunk {
@@ -220,6 +227,44 @@ const Parser = struct {
 
     fn expression(self: *Parser) void {
         self.parsePrecedence(.assignment);
+    }
+
+    fn declaration(self: *Parser) void {
+        self.statement();
+        if (self.panicMode) self.synchronize();
+    }
+
+    fn statement(self: *Parser) void {
+        if (self.match(.kw_print)) {
+            self.printStatement();
+        } else {
+            self.expressionStatement();
+        }
+    }
+
+    fn expressionStatement(self: *Parser) void {
+        self.expression();
+        self.consume(.semicolon, "Expect ; after value.");
+        self.emitOp(.pop);
+    }
+
+    fn printStatement(self: *Parser) void {
+        self.expression();
+        self.consume(.semicolon, "Expect ; after value.");
+        self.emitOp(.print);
+    }
+
+    fn synchronize(self: *Parser) void {
+        self.panicMode = false;
+
+        while (self.current.type != .eof) {
+            if (self.previous.type == .semicolon) return;
+            switch (self.current.type) {
+                .kw_class, .kw_fun, .kw_var, .kw_for, .kw_if, .kw_while, .kw_print, .kw_return => return,
+                else => {},
+            }
+            self.advance();
+        }
     }
 
     fn number(self: *Parser) void {
