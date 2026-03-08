@@ -19,6 +19,7 @@ chunk: *Chunk,
 ip: [*]u8,
 stack: std.ArrayList(Value),
 objects: *Objects,
+globals: Table,
 gpa: std.mem.Allocator,
 
 pub fn init(gpa: std.mem.Allocator) !VM {
@@ -27,12 +28,14 @@ pub fn init(gpa: std.mem.Allocator) !VM {
         .ip = undefined,
         .stack = std.ArrayList(Value).empty,
         .objects = undefined,
+        .globals = Table.init(gpa),
         .gpa = gpa,
     };
 }
 
 pub fn deinit(self: *VM) void {
     self.stack.deinit(self.gpa);
+    self.globals.deinit();
 }
 
 pub fn interpret(self: *VM, source: []const u8) !void {
@@ -88,6 +91,18 @@ fn run(self: *VM) !void {
             .true => self.push(.{ .bool = true }),
             .false => self.push(.{ .bool = false }),
             .pop => _ = self.pop(),
+            .get_global => {
+                const name = self.readConstant().str;
+                if (self.globals.get(name)) |value| {
+                    self.push(value);
+                } else {
+                    return self.runtimeError("Undefined variable {s}\n", .{name.slice});
+                }
+            },
+            .define_global => {
+                self.globals.put(self.readConstant().str, self.peek(0)) catch unreachable;
+                _ = self.pop();
+            },
             .equal => {
                 const b = self.pop();
                 const a = self.pop();
@@ -154,6 +169,10 @@ fn readConstant(self: *VM) Value {
 
 fn push(self: *VM, val: Value) void {
     self.stack.append(self.gpa, val) catch unreachable;
+}
+
+fn peek(self: *VM, offset: u8) Value {
+    return self.stack.items[self.stack.items.len - (1 + offset)];
 }
 
 pub fn pop(self: *VM) Value {

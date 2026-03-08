@@ -191,6 +191,7 @@ const Parser = struct {
             r.add(.greater_equal, null, binary, .comparison);
             r.add(.less, null, binary, .comparison);
             r.add(.less_equal, null, binary, .comparison);
+            r.add(.identifier, variable, null, .none);
             r.add(.string, string, null, .none);
             return r;
         }
@@ -225,13 +226,42 @@ const Parser = struct {
         }
     }
 
+    fn identifierConstant(self: *Parser, name: Token) u8 {
+        return self.makeConstant(.copyStr(self.gpa, self.objects, name.slice));
+    }
+
+    fn parseVariable(self: *Parser, errorMessage: []const u8) u8 {
+        self.consume(.identifier, errorMessage);
+        return self.identifierConstant(self.previous);
+    }
+
+    fn defineVariable(self: *Parser, global: u8) void {
+        self.emitOp1(.define_global, global);
+    }
+
     fn expression(self: *Parser) void {
         self.parsePrecedence(.assignment);
     }
 
     fn declaration(self: *Parser) void {
-        self.statement();
+        if (self.match(.kw_var)) {
+            self.varDeclaration();
+        } else {
+            self.statement();
+        }
+
         if (self.panicMode) self.synchronize();
+    }
+
+    fn varDeclaration(self: *Parser) void {
+        const global = self.parseVariable("Expect variable name.");
+        if (self.match(.equal)) {
+            self.expression();
+        } else {
+            self.emitOp(.nil);
+        }
+        self.consume(.semicolon, "Expect ';' after variable declaration.");
+        self.defineVariable(global);
     }
 
     fn statement(self: *Parser) void {
@@ -275,6 +305,15 @@ const Parser = struct {
     fn string(self: *Parser) void {
         const str = self.previous.slice[1 .. self.previous.slice.len - 1];
         self.emitConstant(.copyStr(self.gpa, self.objects, str));
+    }
+
+    fn namedVariable(self: *Parser, name: Token) void {
+        const arg = self.identifierConstant(name);
+        self.emitOp1(.get_global, arg);
+    }
+
+    fn variable(self: *Parser) void {
+        return self.namedVariable(self.previous);
     }
 
     fn errorAtCurrent(self: *Parser, message: []const u8) void {
