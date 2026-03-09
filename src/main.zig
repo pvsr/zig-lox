@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const anyline = @import("anyline");
 const VM = @import("VM.zig");
 
 pub fn main() !void {
@@ -17,23 +18,31 @@ pub fn main() !void {
     vm.deinit();
 }
 
+const CSI = "\x1B[";
+fn clearLine() void {
+    std.debug.print(CSI ++ "2K" ++ CSI ++ "G", .{});
+}
+
 fn repl(vm: *VM) !void {
-    var buf: [1024]u8 = undefined;
-    var stdin = std.fs.File.stdin().reader(&buf);
+    // TODO only print if stdin is a terminal
+    std.debug.print("zig-lox interpreter 0.0.1\n", .{});
+    anyline.usingHistory();
+    defer {
+        anyline.freeHistory(vm.gpa);
+        anyline.freeKillRing(vm.gpa);
+    }
     while (true) {
-        std.debug.print("> ", .{});
-        if (stdin.interface.takeDelimiter('\n')) |line| {
-            if (line) |l| {
-                vm.interpret(l) catch {};
-            } else {
-                break;
+        if (anyline.readLine(vm.gpa, ">> ")) |line| {
+            defer vm.gpa.free(line);
+            if (std.mem.eql(u8, ".exit", line)) {
+                return;
             }
+            vm.interpret(line) catch {};
+            try anyline.addHistory(vm.gpa, line);
         } else |err| switch (err) {
-            error.StreamTooLong => {
-                std.debug.print("Input too long, not executing.\n", .{});
-                _ = try stdin.interface.discardRemaining();
-            },
-            error.ReadFailed => return,
+            error.ProcessExit => clearLine(),
+            error.EndOfInput => return,
+            else => return err,
         }
     }
 }

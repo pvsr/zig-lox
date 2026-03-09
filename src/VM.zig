@@ -42,13 +42,13 @@ pub fn deinit(self: *VM) void {
 pub fn interpret(self: *VM, source: []const u8) !void {
     var chunk: Chunk = .init(self.gpa);
     defer chunk.deinit();
+
+    if (!compiler.compile(self.gpa, source, &chunk, self.objects))
+        return InterpreterError.CompileError;
+
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
-
-    return if (!compiler.compile(self.gpa, source, self.chunk, self.objects))
-        InterpreterError.CompileError
-    else
-        self.run();
+    return self.run();
 }
 
 fn run(self: *VM) !void {

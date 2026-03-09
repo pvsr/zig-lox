@@ -1,6 +1,12 @@
 .{
     .name = .lox,
     .version = "0.0.1",
+    .dependencies = .{
+        .anyline = .{
+            .url = "https://codeberg.org/pvsr/anyline/archive/fix-paste.tar.gz",
+            .hash = "anyline-0.5.0-PM_c77wlAQCWNluRCLC0i4TLLxgsK1C_zuxYvpo0tZQE",
+        },
+    },
     .minimum_zig_version = "0.15.2",
     .paths = .{""},
     .fingerprint = 0x23765301b2f1d54,
