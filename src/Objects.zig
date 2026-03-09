@@ -10,11 +10,13 @@ const Self = @This();
 nodes: std.SinglyLinkedList,
 strings: Table,
 
-pub fn init(gpa: std.mem.Allocator) Self {
-    return .{
+pub fn init(gpa: std.mem.Allocator) *Self {
+    const self = gpa.create(Self) catch unreachable;
+    self.* = .{
         .nodes = .{},
         .strings = Table.init(gpa),
     };
+    return self;
 }
 
 pub fn deinit(self: *Self, gpa: std.mem.Allocator) void {
@@ -25,6 +27,7 @@ pub fn deinit(self: *Self, gpa: std.mem.Allocator) void {
         object.deinit(gpa);
     }
     self.strings.deinit();
+    gpa.destroy(self);
 }
 
 const FixedHashContext = struct {

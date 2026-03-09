@@ -56,8 +56,8 @@ test {
     const f: Value = .{ .bool = false };
     const x: Value = .{ .number = 0 };
     const y: Value = .{ .number = 15.5 };
-    const s1: Value = .copyStr(gpa, &objects, "123");
-    const s2: Value = .copyStr(gpa, &objects, "abc");
+    const s1: Value = .copyStr(gpa, objects, "123");
+    const s2: Value = .copyStr(gpa, objects, "abc");
     const nil: Value = .nil;
     try std.testing.expect(!t.equals(f));
     try std.testing.expect(t.equals(.{ .bool = true }));
@@ -69,9 +69,9 @@ test {
     try std.testing.expect(!s1.equals(s2));
     try std.testing.expect(!s1.equals(y));
     try std.testing.expect(s1.equals(s1));
-    try std.testing.expect(s1.equals(.copyStr(gpa, &objects, "123")));
-    try std.testing.expect(s2.equals(.copyStr(gpa, &objects, "abc")));
-    try std.testing.expect(!s1.equals(.copyStr(gpa, &objects, "")));
+    try std.testing.expect(s1.equals(.copyStr(gpa, objects, "123")));
+    try std.testing.expect(s2.equals(.copyStr(gpa, objects, "abc")));
+    try std.testing.expect(!s1.equals(.copyStr(gpa, objects, "")));
     try std.testing.expect(nil.equals(.nil));
     try std.testing.expect(!nil.equals(t));
     try std.testing.expect(!nil.equals(f));

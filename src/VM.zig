@@ -27,7 +27,7 @@ pub fn init(gpa: std.mem.Allocator) !VM {
         .chunk = undefined,
         .ip = undefined,
         .stack = std.ArrayList(Value).empty,
-        .objects = undefined,
+        .objects = .init(gpa),
         .globals = Table.init(gpa),
         .gpa = gpa,
     };
@@ -36,21 +36,19 @@ pub fn init(gpa: std.mem.Allocator) !VM {
 pub fn deinit(self: *VM) void {
     self.stack.deinit(self.gpa);
     self.globals.deinit();
+    self.objects.deinit(self.gpa);
 }
 
 pub fn interpret(self: *VM, source: []const u8) !void {
     var chunk: Chunk = .init(self.gpa);
     defer chunk.deinit();
-
-    var objects: Objects = .init(self.gpa);
-    defer objects.deinit(self.gpa);
-    if (!compiler.compile(self.gpa, source, &chunk, &objects))
-        return InterpreterError.CompileError;
-
     self.chunk = &chunk;
     self.ip = chunk.code.items.ptr;
-    self.objects = &objects;
-    return self.run();
+
+    return if (!compiler.compile(self.gpa, source, self.chunk, self.objects))
+        InterpreterError.CompileError
+    else
+        self.run();
 }
 
 fn run(self: *VM) !void {

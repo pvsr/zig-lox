@@ -19,17 +19,21 @@ pub fn main() !void {
 
 fn repl(vm: *VM) !void {
     var buf: [1024]u8 = undefined;
-    var line: [1024]u8 = undefined;
-    var w: std.io.Writer = .fixed(&line);
+    var stdin = std.fs.File.stdin().reader(&buf);
     while (true) {
-        var stdin = std.fs.File.stdin().reader(&buf);
-
         std.debug.print("> ", .{});
-        if (stdin.interface.streamDelimiter(&w, '\n')) |len| {
-            try vm.interpret(line[0..len]);
+        if (stdin.interface.takeDelimiter('\n')) |line| {
+            if (line) |l| {
+                vm.interpret(l) catch {};
+            } else {
+                break;
+            }
         } else |err| switch (err) {
-            error.EndOfStream => return,
-            else => unreachable,
+            error.StreamTooLong => {
+                std.debug.print("Input too long, not executing.\n", .{});
+                _ = try stdin.interface.discardRemaining();
+            },
+            error.ReadFailed => return,
         }
     }
 }
