@@ -32,11 +32,22 @@ fn repl(vm: *VM) !void {
         anyline.freeKillRing(vm.gpa);
     }
     while (true) {
-        if (anyline.readLine(vm.gpa, ">> ")) |line| {
-            defer vm.gpa.free(line);
-            if (std.mem.eql(u8, ".exit", line)) {
+        if (anyline.readLine(vm.gpa, ">> ")) |in| {
+            var line = std.mem.trim(u8, in, " ");
+            if (line.len == 0) continue;
+
+            const last = line[line.len - 1];
+            const tmp = if (last != ';' and last != '}') blk: {
+                line = try std.mem.concat(vm.gpa, u8, &[_][]const u8{ line, ";" });
+                vm.gpa.free(in);
+                break :blk line;
+            } else in;
+            defer vm.gpa.free(tmp);
+
+            if (std.mem.eql(u8, ".exit;", line)) {
                 return;
             }
+
             vm.interpret(line) catch {};
             try anyline.addHistory(vm.gpa, line);
         } else |err| switch (err) {
