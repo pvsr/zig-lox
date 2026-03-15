@@ -16,27 +16,29 @@ const VM = @This();
 
 pub const InterpreterError = error{ CompileError, RuntimeError };
 
-const STACK_MAX = 256;
+const STACK_MAX = 255;
 
 gpa: std.mem.Allocator,
 out: *Writer,
 globals: Table,
 objects: *Objects,
-stack: std.ArrayList(Value) = .empty,
+stack: std.ArrayListUnmanaged(Value),
 chunk: *Chunk = undefined,
 ip: [*]u8 = undefined,
 
-pub fn init(gpa: std.mem.Allocator, out: *Writer) !VM {
+pub const StackBuffer = [STACK_MAX]Value;
+
+pub fn init(gpa: std.mem.Allocator, out: *Writer, stack_buf: *StackBuffer) !VM {
     return .{
         .gpa = gpa,
         .out = out,
         .globals = .init(gpa),
         .objects = .init(gpa),
+        .stack = .initBuffer(stack_buf),
     };
 }
 
 pub fn deinit(self: *VM) void {
-    self.stack.deinit(self.gpa);
     self.globals.deinit();
     self.objects.deinit(self.gpa);
 }
@@ -205,7 +207,7 @@ fn print(self: *VM, value: Value) !void {
 }
 
 fn push(self: *VM, val: Value) void {
-    self.stack.append(self.gpa, val) catch unreachable;
+    self.stack.appendAssumeCapacity(val);
 }
 
 fn peek(self: *VM, offset: u8) Value {
@@ -243,7 +245,8 @@ fn interpretStr(self: *VM, source: []const u8) !void {
 test {
     var out_buf: [256]u8 = undefined;
     var out: Writer = .fixed(&out_buf);
-    var vm = try VM.init(std.testing.allocator, &out);
+    var stack_buf: StackBuffer = undefined;
+    var vm = try VM.init(std.testing.allocator, &out, &stack_buf);
     defer vm.deinit();
 
     try testInterpretErr(&vm, "var = 0;", error.CompileError);

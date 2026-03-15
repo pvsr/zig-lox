@@ -8,7 +8,8 @@ pub fn main() !void {
     const allocator = debug_allocator.allocator();
     var stdout_buf: [4096]u8 = undefined;
     var stdout = std.fs.File.stdout().writer(&stdout_buf);
-    var vm = try VM.init(allocator, &stdout.interface);
+    var stack_buf: VM.StackBuffer = undefined;
+    var vm = try VM.init(allocator, &stdout.interface, &stack_buf);
     switch (std.os.argv.len) {
         1 => try repl(&vm),
         2 => try runFile(&vm, std.mem.span(std.os.argv[1])),
