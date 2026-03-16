@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const anyline = @import("anyline");
 const VM = @import("VM.zig");
 
 pub fn main() !void {
@@ -21,44 +20,24 @@ pub fn main() !void {
     vm.deinit();
 }
 
-const CSI = "\x1B[";
-fn clearLine() void {
-    std.debug.print(CSI ++ "2K" ++ CSI ++ "G", .{});
-}
-
 fn repl(vm: *VM) !void {
-    // TODO only print if stdin is a terminal
-    std.debug.print("zig-lox interpreter 0.0.1\n", .{});
-    anyline.usingHistory();
-    defer {
-        anyline.freeHistory(vm.gpa);
-        anyline.freeKillRing(vm.gpa);
-    }
+    var buf: [1024]u8 = undefined;
+    var stdin = std.fs.File.stdin().reader(&buf);
     while (true) {
-        if (anyline.readLine(vm.gpa, ">> ")) |in| {
-            defer vm.gpa.free(in);
-            const trimmed = std.mem.trim(u8, in, " ");
-            if (trimmed.len == 0) continue;
-
-            const last = trimmed[trimmed.len - 1];
-            const unterminated = last != ';' and last != '}';
-            const line = if (unterminated)
-                try std.mem.concat(vm.gpa, u8, &[_][]const u8{ trimmed, ";" })
-            else
-                trimmed;
-            defer if (unterminated) vm.gpa.free(line);
-
-            if (std.mem.eql(u8, ".exit;", line)) {
-                return;
+        std.debug.print(">> ", .{});
+        if (stdin.interface.takeDelimiter('\n')) |line| {
+            if (line) |l| {
+                if (std.mem.eql(u8, ".exit;", l)) return;
+                vm.interpretStr(l) catch {};
+            } else {
+                break;
             }
-
-            var r: std.Io.Reader = .fixed(line);
-            vm.interpret(&r) catch {};
-            try anyline.addHistory(vm.gpa, in);
         } else |err| switch (err) {
-            error.ProcessExit => clearLine(),
-            error.EndOfInput => return,
-            else => return err,
+            error.StreamTooLong => {
+                std.debug.print("Input too long, not executing.\n", .{});
+                _ = try stdin.interface.discardRemaining();
+            },
+            error.ReadFailed => return,
         }
     }
 }

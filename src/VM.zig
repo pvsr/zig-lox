@@ -237,7 +237,7 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) Interpre
     return InterpreterError.RuntimeError;
 }
 
-fn interpretStr(self: *VM, source: []const u8) !void {
+pub fn interpretStr(self: *VM, source: []const u8) !void {
     var r: Reader = .fixed(source);
     return self.interpret(&r);
 }

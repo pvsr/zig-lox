@@ -1,12 +1,6 @@
 .{
     .name = .lox,
     .version = "0.0.1",
-    .dependencies = .{
-        .anyline = .{
-            .url = "https://codeberg.org/pvsr/anyline/archive/stdin-piped.tar.gz",
-            .hash = "anyline-0.5.0-PM_c79opAQDvqNL4k7X8VGaIDTbsY6SOerDkJuIewvkK",
-        },
-    },
     .minimum_zig_version = "0.15.2",
     .paths = .{""},
     .fingerprint = 0x23765301b2f1d54,
