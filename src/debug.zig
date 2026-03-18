@@ -25,6 +25,7 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
     const instruction: Chunk.OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {
         .constant, .get_global, .define_global, .set_global => constantInstruction(@tagName(instruction), chunk, offset),
+        .get_local, .set_local => byteInstruction(@tagName(instruction), chunk, offset),
         else => simpleInstruction(@tagName(instruction)),
     };
 }
@@ -39,5 +40,11 @@ fn constantInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
     std.debug.print("{s:<16} {d:4} '", .{ name, constant });
     chunk.constants.items[constant].print();
     std.debug.print("'\n", .{});
+    return 2;
+}
+
+fn byteInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
+    const slot = chunk.code.items[offset + 1];
+    std.debug.print("{s:<16} {d:4}\n", .{ name, slot });
     return 2;
 }

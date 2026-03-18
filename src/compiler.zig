@@ -19,7 +19,35 @@ const Parser = struct {
     panicMode: bool = false,
 };
 
+const MAX_LOCALS = 0xFF;
+
+const Local = struct {
+    name: Token,
+    depth: ?u16,
+};
+
+const Compiler = struct {
+    locals: [MAX_LOCALS]Local = undefined,
+    localCount: u8 = 0,
+    scopeDepth: u16 = 0,
+
+    pub fn resolveLocal(self: Compiler, name: Token) ?u8 {
+        var i = self.localCount;
+        while (i > 0) : (i -= 1) {
+            const local = compiler.locals[i - 1];
+            if (std.mem.eql(u8, name.type.identifier, local.name.type.identifier)) {
+                if (local.depth == null) {
+                    @"error"("Can't read local variable in its own initializer.");
+                }
+                return i - 1;
+            }
+        }
+        return null;
+    }
+};
+
 var parser: Parser = undefined;
+var compiler: Compiler = .{};
 
 pub fn compile(gpa: std.mem.Allocator, source: *std.Io.Reader, chunk: *Chunk, objects: *Objects) bool {
     var buf: [255]u8 = undefined;
@@ -106,6 +134,19 @@ fn endCompiler() void {
     emitReturn();
     if (debug.DEBUG and !parser.hadError) {
         debug.disassembleChunk(currentChunk(), "code");
+    }
+}
+
+fn beginScope() void {
+    compiler.scopeDepth += 1;
+}
+
+fn endScope() void {
+    compiler.scopeDepth -= 1;
+
+    while (compiler.localCount > 0 and compiler.locals[compiler.localCount - 1].depth orelse 0 > compiler.scopeDepth) {
+        emitOp(.pop);
+        compiler.localCount -= 1;
     }
 }
 
@@ -257,17 +298,62 @@ fn identifierConstant(name: Token) u8 {
     return makeConstant(.ownedStr(parser.gpa, parser.objects, name.type.identifier));
 }
 
+fn addLocal(name: Token) void {
+    if (compiler.localCount == MAX_LOCALS) {
+        @"error"("Too many local variables in function.");
+        return;
+    }
+
+    compiler.locals[compiler.localCount] = .{
+        .name = name,
+        .depth = null,
+    };
+    compiler.localCount += 1;
+}
+
+fn declareVariable() void {
+    if (compiler.scopeDepth == 0) return;
+
+    const name = parser.previous;
+    var i = compiler.localCount;
+    while (i > 0) : (i -= 1) {
+        const local = compiler.locals[i - 1];
+        if (local.depth orelse 0 > compiler.scopeDepth) break;
+
+        if (std.mem.eql(u8, name.type.identifier, local.name.type.identifier)) {
+            @"error"("Already a variable with this name in scope.");
+        }
+    }
+    addLocal(name);
+}
+
 fn parseVariable(errorMessage: []const u8) u8 {
     consume(.identifier, errorMessage);
+
+    declareVariable();
+    if (compiler.scopeDepth > 0) return 0;
+
     return identifierConstant(parser.previous);
 }
 
 fn defineVariable(global: u8) void {
+    if (compiler.scopeDepth > 0) {
+        compiler.locals[compiler.localCount - 1].depth = compiler.scopeDepth;
+        return;
+    }
+
     emitOp1(.define_global, global);
 }
 
 fn expression() void {
     parsePrecedence(.assignment);
+}
+
+fn block() void {
+    while (parser.current.type != .right_brace and parser.current.type != .eof)
+        declaration();
+
+    consume(.right_brace, "Expect '}' after block.");
 }
 
 fn declaration() void {
@@ -294,6 +380,10 @@ fn varDeclaration() void {
 fn statement() void {
     if (match(.kw_print)) {
         printStatement();
+    } else if (match(.left_brace)) {
+        beginScope();
+        block();
+        endScope();
     } else {
         expressionStatement();
     }
@@ -333,12 +423,24 @@ fn string() void {
 }
 
 fn namedVariable(name: Token) void {
-    const arg = identifierConstant(name);
+    var get_op: Chunk.OpCode = undefined;
+    var set_op: Chunk.OpCode = undefined;
+    var arg = compiler.resolveLocal(name);
+    if (arg) |a| {
+        _ = a;
+        get_op = .get_local;
+        set_op = .set_local;
+    } else {
+        arg = identifierConstant(name);
+        get_op = .get_global;
+        set_op = .set_global;
+    }
+
     if (parser.canAssign and match(.equal)) {
         expression();
-        emitOp1(.set_global, arg);
+        emitOp1(set_op, arg.?);
     } else {
-        emitOp1(.get_global, arg);
+        emitOp1(get_op, arg.?);
     }
 }
 

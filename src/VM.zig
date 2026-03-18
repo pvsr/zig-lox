@@ -89,6 +89,14 @@ fn run(self: *VM) !void {
             .true => self.push(.{ .bool = true }),
             .false => self.push(.{ .bool = false }),
             .pop => _ = self.pop(),
+            .get_local => {
+                const slot = self.readByte();
+                self.push(self.stack.items[slot]);
+            },
+            .set_local => {
+                const slot = self.readByte();
+                self.stack.items[slot] = self.peek(0);
+            },
             .get_global => {
                 const name = self.readConstant().str;
                 if (self.globals.get(name)) |value| {
