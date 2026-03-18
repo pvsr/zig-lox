@@ -48,7 +48,8 @@ fn repl(vm: *VM) !void {
                 return;
             }
 
-            vm.interpret(line) catch {};
+            var r: std.Io.Reader = .fixed(line);
+            vm.interpret(&r) catch {};
             try anyline.addHistory(vm.gpa, line);
         } else |err| switch (err) {
             error.ProcessExit => clearLine(),
@@ -59,9 +60,11 @@ fn repl(vm: *VM) !void {
 }
 
 fn runFile(vm: *VM, path: []const u8) !void {
-    const source = try readFile(vm.gpa, path);
-    defer vm.gpa.free(source);
-    vm.interpret(source) catch |err| {
+    const f = try fileReader(path);
+    defer f.close();
+    var buf: [1024]u8 = undefined;
+    var r = f.reader(&buf);
+    vm.interpret(&r.interface) catch |err| {
         switch (err) {
             VM.InterpreterError.CompileError => std.process.exit(65),
             VM.InterpreterError.RuntimeError => std.process.exit(70),
@@ -69,12 +72,9 @@ fn runFile(vm: *VM, path: []const u8) !void {
     };
 }
 
-fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
+fn fileReader(path: []const u8) !std.fs.File {
     if (std.fs.cwd().openFile(path, .{})) |f| {
-        defer f.close();
-        var buf: [1024]u8 = undefined;
-        var r = f.reader(&buf);
-        return r.interface.allocRemaining(allocator, .unlimited);
+        return f;
     } else |err| {
         std.debug.print("Could not open file {s}: {}\n", .{ path, err });
         std.process.exit(74);

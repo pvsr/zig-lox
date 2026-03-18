@@ -1,32 +1,41 @@
 const std = @import("std");
+const Reader = std.Io.Reader;
+const Writer = std.Io.Writer;
 
 const Token = @import("Token.zig");
 
 const Scanner = @This();
 
-start: []const u8,
-current: []const u8,
+alloc: std.mem.Allocator,
+src: *Reader,
+out: *Writer,
 line: u16,
 
-pub fn init(source: []const u8) Scanner {
+pub fn init(alloc: std.mem.Allocator, src: *Reader, out: *Writer) Scanner {
     return .{
-        .start = source,
-        .current = source,
+        .alloc = alloc,
+        .src = src,
+        .out = out,
         .line = 1,
     };
 }
 
-pub fn scanToken(self: *Scanner) Token {
-    self.skipWhitespace();
-    self.start = self.current;
+pub fn scanToken(self: *Scanner) !Token {
+    try self.skipWhitespace();
 
-    if (self.isAtEnd()) return self.makeToken(.eof);
+    const c = self.src.peekByte() catch |err|
+        if (err == error.EndOfStream) return self.makeToken(.eof) else return err;
 
-    const c = self.advance();
+    if (isAlpha(c)) {
+        self.advance();
+        return self.identifier();
+    }
+    if (isDigit(c)) {
+        self.advance();
+        return self.number();
+    }
 
-    if (isAlpha(c)) return self.identifier();
-    if (isDigit(c)) return self.number();
-
+    self.toss();
     switch (c) {
         '(' => return self.makeToken(.left_paren),
         ')' => return self.makeToken(.right_paren),
@@ -39,10 +48,10 @@ pub fn scanToken(self: *Scanner) Token {
         '+' => return self.makeToken(.plus),
         '/' => return self.makeToken(.slash),
         '*' => return self.makeToken(.star),
-        '!' => return self.makeToken(if (self.match('=')) .bang_equal else .bang),
-        '=' => return self.makeToken(if (self.match('=')) .equal_equal else .equal),
-        '<' => return self.makeToken(if (self.match('=')) .less_equal else .less),
-        '>' => return self.makeToken(if (self.match('=')) .greater_equal else .greater),
+        '!' => return self.makeToken(if (try self.match('=')) .bang_equal else .bang),
+        '=' => return self.makeToken(if (try self.match('=')) .equal_equal else .equal),
+        '<' => return self.makeToken(if (try self.match('=')) .less_equal else .less),
+        '>' => return self.makeToken(if (try self.match('=')) .greater_equal else .greater),
         '"' => return self.string(),
         else => {},
     }
@@ -50,140 +59,138 @@ pub fn scanToken(self: *Scanner) Token {
     return self.errorToken("Unexpected character.");
 }
 
-fn length(self: Scanner) usize {
-    return self.start.len - self.current.len;
-}
-
-fn isAtEnd(self: Scanner) bool {
-    return self.current.len == 0;
-}
-
-fn string(self: *Scanner) Token {
-    while (!self.isAtEnd() and self.current[0] != '"') {
-        if (self.current[0] == '\n') self.line += 1;
-        _ = self.advance();
+fn string(self: *Scanner) !Token {
+    while (self.src.peekByte()) |c| {
+        switch (c) {
+            '"' => {
+                self.toss();
+                break;
+            },
+            '\n' => {
+                self.toss();
+                self.line += 1;
+            },
+            else => self.advance(),
+        }
+    } else |err| {
+        return if (err == error.EndOfStream) self.errorToken("Unterminated string") else err;
     }
-    if (self.isAtEnd()) return self.errorToken("Unterminated string");
-    _ = self.advance();
     return self.makeToken(.string);
 }
 
-fn number(self: *Scanner) Token {
-    while (isDigit(self.peek())) {
-        _ = self.advance();
-    }
-    if (self.peek() == '.' and self.current.len > 1 and isDigit(self.current[1])) {
-        _ = self.advance();
-        while (isDigit(self.peek())) {
-            _ = self.advance();
-        }
-    }
+fn number(self: *Scanner) !Token {
+    var decimal = false;
+    while (self.src.peekByte()) |c| {
+        if (isDigit(c)) {
+            self.advance();
+        } else if (!decimal and c == '.') {
+            const next = self.src.peekArray(2) catch |err|
+                if (err == error.EndOfStream) break else return err;
+            if (isDigit(next[1])) {
+                self.advance();
+                self.advance();
+            } else break;
+            decimal = true;
+        } else break;
+    } else |err| if (err != error.EndOfStream) return err;
+
     return self.makeToken(.number);
 }
 
-fn identifier(self: *Scanner) Token {
-    while (isAlpha(self.peek()) or isDigit(self.peek())) {
-        _ = self.advance();
-    }
-    return self.makeToken(self.identifierType());
+fn identifier(self: *Scanner) !Token {
+    while (self.src.peekByte()) |c| {
+        if (isAlpha(c) or isDigit(c))
+            self.advance()
+        else
+            break;
+    } else |err| if (err != error.EndOfStream) return err;
+
+    return self.makeToken(try self.identifierType());
 }
 
-fn identifierType(self: Scanner) Token.Type {
-    return switch (self.start[0]) {
-        'a' => self.checkKeyword(1, "nd", .kw_and),
-        'c' => self.checkKeyword(1, "lass", .kw_class),
-        'e' => self.checkKeyword(1, "lse", .kw_else),
-        'f' => if (self.length() > 1)
-            switch (self.start[1]) {
-                'a' => self.checkKeyword(2, "lse", .kw_false),
-                'o' => self.checkKeyword(2, "r", .kw_for),
-                'u' => self.checkKeyword(2, "n", .kw_fun),
-                else => .identifier,
-            }
-        else
-            .identifier,
-        'i' => self.checkKeyword(1, "f", .kw_if),
-        'n' => self.checkKeyword(1, "il", .kw_nil),
-        'o' => self.checkKeyword(1, "r", .kw_or),
-        'p' => self.checkKeyword(1, "rint", .kw_print),
-        'r' => self.checkKeyword(1, "eturn", .kw_return),
-        's' => self.checkKeyword(1, "uper", .kw_super),
-        't' => if (self.length() > 1)
-            switch (self.start[1]) {
-                'h' => self.checkKeyword(2, "is", .kw_this),
-                'r' => self.checkKeyword(2, "ue", .kw_true),
-                else => .identifier,
-            }
-        else
-            .identifier,
-        'v' => self.checkKeyword(1, "ar", .kw_var),
-        'w' => self.checkKeyword(1, "hile", .kw_while),
+fn identifierType(self: *Scanner) !Token.Type {
+    var r: Reader = .fixed(self.out.buffered());
+    return switch (r.takeByte() catch unreachable) {
+        'a' => try checkKeyword(&r, "nd", .kw_and),
+        'c' => try checkKeyword(&r, "lass", .kw_class),
+        'e' => try checkKeyword(&r, "lse", .kw_else),
+        'f' => switch (r.takeByte() catch |err|
+            return if (err == error.EndOfStream) .identifier else err) {
+            'a' => try checkKeyword(&r, "lse", .kw_false),
+            'o' => try checkKeyword(&r, "r", .kw_for),
+            'u' => try checkKeyword(&r, "n", .kw_fun),
+            else => .identifier,
+        },
+        'i' => try checkKeyword(&r, "f", .kw_if),
+        'n' => try checkKeyword(&r, "il", .kw_nil),
+        'o' => try checkKeyword(&r, "r", .kw_or),
+        'p' => try checkKeyword(&r, "rint", .kw_print),
+        'r' => try checkKeyword(&r, "eturn", .kw_return),
+        's' => try checkKeyword(&r, "uper", .kw_super),
+        't' => switch (r.takeByte() catch |err|
+            return if (err == error.EndOfStream) .identifier else err) {
+            'h' => try checkKeyword(&r, "is", .kw_this),
+            'r' => try checkKeyword(&r, "ue", .kw_true),
+            else => .identifier,
+        },
+        'v' => try checkKeyword(&r, "ar", .kw_var),
+        'w' => try checkKeyword(&r, "hile", .kw_while),
         else => .identifier,
     };
 }
 
-fn checkKeyword(self: Scanner, start: u32, rest: []const u8, tokenType: Token.Type) Token.Type {
-    if (std.mem.eql(u8, self.start[start..self.length()], rest))
+fn checkKeyword(r: *Reader, comptime rest: []const u8, tokenType: Token.Type) !Token.Type {
+    if (std.mem.eql(u8, r.takeArray(rest.len) catch |err|
+        return if (err == error.EndOfStream) .identifier else err, rest))
         return tokenType
     else
         return .identifier;
 }
 
-fn makeToken(self: Scanner, tokenType: Token.Type) Token {
-    return .{
-        .type = tokenType,
-        .slice = self.start[0..self.length()],
-        .line = self.line,
-    };
+fn makeToken(self: *Scanner, tokenType: Token.Type) Token {
+    defer _ = self.out.consumeAll();
+    return .init(self, tokenType);
 }
 
 fn errorToken(self: Scanner, message: []const u8) Token {
-    return .{
-        .type = .err,
-        .slice = message,
-        .line = self.line,
-    };
+    return .err(self.line, message);
 }
 
-fn advance(self: *Scanner) u8 {
-    const c = self.current[0];
-    self.current = self.current[1..];
-    return c;
+fn advance(self: *Scanner) void {
+    return self.src.streamExact(self.out, 1) catch unreachable;
 }
 
-fn peek(self: *Scanner) u8 {
-    return if (self.isAtEnd()) 0 else self.current[0];
+fn toss(self: *Scanner) void {
+    self.src.toss(1);
 }
 
-fn match(self: *Scanner, expected: u8) bool {
-    if (self.peek() != expected) return false;
-    self.current = self.current[1..];
+fn match(self: *Scanner, expected: u8) !bool {
+    if (try self.src.peekByte() != expected) return false;
+    self.toss();
     return true;
 }
 
-fn skipWhitespace(self: *Scanner) void {
-    while (true) {
-        switch (self.peek()) {
-            ' ', '\r', '\t' => {
-                _ = self.advance();
-            },
+fn skipWhitespace(self: *Scanner) !void {
+    while (self.src.peekByte()) |c| {
+        switch (c) {
+            ' ', '\r', '\t' => self.toss(),
             '\n' => {
                 self.line += 1;
-                _ = self.advance();
+                self.toss();
             },
             '/' => {
-                if (!self.isAtEnd() and self.current[1] == '/') {
-                    self.current = self.current[2..];
-                    while (!self.isAtEnd() and self.current[0] != '\n') {
-                        _ = self.advance();
-                    }
-                } else return;
+                const next = self.src.peekArray(2) catch |err|
+                    return if (err == error.EndOfStream) {} else err;
+                if (next[1] == '/') {
+                    _ = self.src.discardDelimiterInclusive('\n') catch |err|
+                        return if (err == error.EndOfStream) {} else err;
+                    self.line += 1;
+                }
             },
             else => return,
         }
-        if (self.isAtEnd()) {
-            return;
-        }
+    } else |err| {
+        if (err == error.EndOfStream) return else return err;
     }
 }
 
@@ -195,4 +202,84 @@ fn isAlpha(c: u8) bool {
 
 fn isDigit(c: u8) bool {
     return c >= '0' and c <= '9';
+}
+
+test {
+    try scanTest("!true", &.{ .{
+        .type = .bang,
+        .line = 1,
+    }, .{
+        .type = .kw_true,
+        .line = 1,
+    } });
+    try scanTest("false == nil", &.{ .{
+        .type = .kw_false,
+        .line = 1,
+    }, .{
+        .type = .equal_equal,
+        .line = 1,
+    }, .{
+        .type = .kw_nil,
+        .line = 1,
+    } });
+    try scanTest("\"abc\" + \"def\"", &.{ .{
+        .type = .{
+            .string = "abc",
+        },
+        .line = 1,
+    }, .{
+        .type = .plus,
+        .line = 1,
+    }, .{
+        .type = .{
+            .string = "def",
+        },
+        .line = 1,
+    } });
+    try scanTest("p", &.{.{ .type = .{ .identifier = "p" }, .line = 1 }});
+
+    const src = "print 1.5 true;";
+    const tokens: [5]Token = .{
+        .{
+            .type = .kw_print,
+            .line = 1,
+        },
+        .{
+            .type = .{
+                .number = 1.5,
+            },
+            .line = 1,
+        },
+        .{
+            .type = .kw_true,
+            .line = 1,
+        },
+        .{
+            .type = .semicolon,
+            .line = 1,
+        },
+        .{
+            .type = .eof,
+            .line = 1,
+        },
+    };
+    try scanTest(src, &tokens);
+}
+
+fn scanTest(src: []const u8, tokens: []const Token) !void {
+    const alloc = std.testing.allocator;
+    var buf: [255]u8 = undefined;
+    var w: Writer = .fixed(&buf);
+    var r: Reader = .fixed(src);
+    var s: Scanner = .init(alloc, &r, &w);
+
+    for (tokens) |token| {
+        var t = try s.scanToken();
+        defer t.deinit(alloc);
+        try std.testing.expectEqualDeep(token, t);
+    }
+    try std.testing.expectEqualDeep(try s.scanToken(), Token{
+        .type = .eof,
+        .line = 1,
+    });
 }

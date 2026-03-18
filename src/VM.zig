@@ -39,7 +39,7 @@ pub fn deinit(self: *VM) void {
     self.objects.deinit(self.gpa);
 }
 
-pub fn interpret(self: *VM, source: []const u8) !void {
+pub fn interpret(self: *VM, source: *std.Io.Reader) !void {
     var chunk: Chunk = .init(self.gpa);
     defer chunk.deinit();
 
@@ -204,13 +204,28 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) Interpre
     return InterpreterError.RuntimeError;
 }
 
+fn interpretStr(self: *VM, source: []const u8) !void {
+    var r: std.Io.Reader = .fixed(source);
+    return self.interpret(&r);
+}
+
 test {
     var vm = try VM.init(std.testing.allocator);
     defer vm.deinit();
-    try vm.interpret(
+    try vm.interpretStr(
         \\print "=" + "=" + "=" + ("=" + "=" + "=");
     );
-    try vm.interpret(
+    try vm.interpretStr(
+        \\// print "not printed";
         \\print "hello " + "to" + " " + "read" + "ers" + " " + "of the vm tests";
+        \\// print "also not printed"
+    );
+    try vm.interpretStr(
+        \\var x = 1.5;
+        \\var y = 2;
+        \\print x + y + 3.5;
+    );
+    try vm.interpretStr(
+        \\print !!true;
     );
 }

@@ -7,9 +7,11 @@ const Token = @import("Token.zig");
 const Objects = @import("Objects.zig");
 const Value = @import("value.zig").Value;
 
-pub fn compile(gpa: std.mem.Allocator, source: []const u8, chunk: *Chunk, objects: *Objects) bool {
-    var scanner = Scanner.init(source);
-    var parser = Parser{
+pub fn compile(gpa: std.mem.Allocator, source: *std.Io.Reader, chunk: *Chunk, objects: *Objects) bool {
+    var buf: [255]u8 = undefined;
+    var out: std.Io.Writer = .fixed(&buf);
+    var scanner: Scanner = .init(gpa, source, &out);
+    var parser: Parser = .{
         .scanner = &scanner,
         .compilingChunk = chunk,
         .current = undefined,
@@ -42,10 +44,10 @@ const Parser = struct {
     fn advance(self: *Parser) void {
         self.previous = self.current;
         while (true) {
-            self.current = self.scanner.scanToken();
+            self.current = self.scanner.scanToken() catch unreachable;
             if (self.current.type != .err) break;
 
-            self.errorAtCurrent(self.current.slice);
+            self.errorAtCurrent(self.current.type.err);
         }
     }
 
@@ -254,7 +256,7 @@ const Parser = struct {
     }
 
     fn identifierConstant(self: *Parser, name: Token) u8 {
-        return self.makeConstant(.copyStr(self.gpa, self.objects, name.slice));
+        return self.makeConstant(.ownedStr(self.gpa, self.objects, name.type.identifier));
     }
 
     fn parseVariable(self: *Parser, errorMessage: []const u8) u8 {
@@ -325,13 +327,11 @@ const Parser = struct {
     }
 
     fn number(self: *Parser) void {
-        const n = std.fmt.parseFloat(f64, self.previous.slice) catch unreachable;
-        self.emitConstant(.{ .number = n });
+        self.emitConstant(.{ .number = self.previous.type.number });
     }
 
     fn string(self: *Parser) void {
-        const str = self.previous.slice[1 .. self.previous.slice.len - 1];
-        self.emitConstant(.copyStr(self.gpa, self.objects, str));
+        self.emitConstant(.ownedStr(self.gpa, self.objects, self.previous.type.string));
     }
 
     fn namedVariable(self: *Parser, name: Token) void {
@@ -357,6 +357,7 @@ const Parser = struct {
     }
 
     fn errorAt(self: *Parser, token: Token, message: []const u8) void {
+        defer token.deinit(self.gpa);
         if (self.panicMode) return;
         self.panicMode = true;
         std.debug.print("[line {d}] Error", .{token.line});
@@ -366,7 +367,9 @@ const Parser = struct {
         } else if (token.type == .err) {
             // Nothing.
         } else {
-            std.debug.print(" at '{s}'", .{token.slice});
+            std.debug.print(" at '", .{});
+            token.print();
+            std.debug.print("'", .{});
         }
 
         std.debug.print(": {s}\n", .{message});
