@@ -17,16 +17,25 @@
     in
     {
       packages = forAllSystems (
-        _: pkgs: rec {
-          zlox = pkgs.stdenv.mkDerivation {
+        system: pkgs: {
+          zlox = pkgs.stdenv.mkDerivation (finalAttrs: {
             pname = "zlox";
             version = "0.0.1";
-            src = ./.;
-            nativeBuildInputs = [ pkgs.zig_0_15 ];
+            src = nixpkgs.lib.cleanSource ./.;
+            nativeBuildInputs = [ pkgs.zig ];
             meta.mainProgram = "zlox";
             doCheck = true;
-          };
-          default = zlox;
+            zigDeps = (
+              pkgs.zig.fetchDeps {
+                inherit (finalAttrs) src pname version;
+                hash = "sha256-uA/s+JPpKlvPNUkFkwZpR/SAU6CakOKruOX04nCtNP0=";
+              }
+            );
+            postConfigure = ''
+              ln -s ${finalAttrs.zigDeps} "$ZIG_GLOBAL_CACHE_DIR/p"
+            '';
+          });
+          default = self.packages.${system}.zlox;
         }
       );
 
@@ -52,12 +61,11 @@
       );
 
       devShells = forAllSystems (
-        system: pkgs: {
+        _: pkgs: {
           default = pkgs.mkShell {
             packages = [
               pkgs.zig
               pkgs.zls
-              pkgs.watchexec
             ];
           };
         }
