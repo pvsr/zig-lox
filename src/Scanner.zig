@@ -185,7 +185,7 @@ fn skipWhitespace(self: *Scanner) !void {
                     _ = self.src.discardDelimiterInclusive('\n') catch |err|
                         return if (err == error.EndOfStream) {} else err;
                     self.line += 1;
-                }
+                } else return;
             },
             else => return,
         }
@@ -237,6 +237,20 @@ test {
         .line = 1,
     } });
     try scanTest("p", &.{.{ .type = .{ .identifier = "p" }, .line = 1 }});
+    try scanTest("10 / 5 // comment", &.{ .{
+        .type = .{
+            .number = 10,
+        },
+        .line = 1,
+    }, .{
+        .type = .slash,
+        .line = 1,
+    }, .{
+        .type = .{
+            .number = 5,
+        },
+        .line = 1,
+    } });
 
     const src = "print 1.5 true;";
     const tokens: [5]Token = .{
