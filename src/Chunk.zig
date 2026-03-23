@@ -19,6 +19,8 @@ pub const OpCode = enum(u8) {
     greater,
     less,
     print,
+    jump,
+    jump_if_false,
     @"return",
     not,
     negate,

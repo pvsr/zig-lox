@@ -69,6 +69,14 @@ fn run(self: *VM) !void {
                 self.pop().print();
                 std.debug.print("\n", .{});
             },
+            .jump => {
+                const offset = self.readShort();
+                self.ip += offset;
+            },
+            .jump_if_false => {
+                const offset = self.readShort();
+                if (isFalsey(self.peek(0))) self.ip += offset;
+            },
             .@"return" => return,
             .negate => {
                 switch (self.stack.getLast()) {
@@ -179,6 +187,14 @@ fn readByte(self: *VM) u8 {
 
 fn readConstant(self: *VM) Value {
     return self.chunk.constants.items[self.readByte()];
+}
+
+fn readShort(self: *VM) u16 {
+    var short: u16 = self.ip[0];
+    short <<= 8;
+    short |= self.ip[1];
+    self.ip += 2;
+    return short;
 }
 
 fn push(self: *VM, val: Value) void {

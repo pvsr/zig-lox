@@ -113,12 +113,30 @@ fn emitOp1(op: Chunk.OpCode, byte: u8) void {
     emitByte(byte);
 }
 
+fn emitJump(op: Chunk.OpCode) usize {
+    emitOp(op);
+    emitByte(0xFF);
+    emitByte(0xFF);
+    return currentChunk().code.items.len - 2;
+}
+
 fn emitReturn() void {
     emitOp(.@"return");
 }
 
 fn emitConstant(value: Value) void {
     emitOp1(.constant, makeConstant(value));
+}
+
+fn patchJump(offset: usize) void {
+    const jump = currentChunk().code.items.len - offset - 2;
+
+    if (jump > 0xFFFF) {
+        @"error"("Too much code to jump over.");
+    }
+
+    currentChunk().code.items[offset] = @truncate(jump >> 8);
+    currentChunk().code.items[offset + 1] = @truncate(jump);
 }
 
 fn makeConstant(value: Value) u8 {
@@ -380,6 +398,8 @@ fn varDeclaration() void {
 fn statement() void {
     if (match(.kw_print)) {
         printStatement();
+    } else if (match(.kw_if)) {
+        ifStatement();
     } else if (match(.left_brace)) {
         beginScope();
         block();
@@ -393,6 +413,24 @@ fn expressionStatement() void {
     expression();
     consume(.semicolon, "Expect ; after value.");
     emitOp(.pop);
+}
+
+fn ifStatement() void {
+    consume(.left_paren, "Expect '(' after 'if'.");
+    expression();
+    consume(.right_paren, "Expect ')' after condition.");
+
+    const then_jump = emitJump(.jump_if_false);
+    emitOp(.pop);
+    statement();
+
+    const else_jump = emitJump(.jump);
+
+    patchJump(then_jump);
+    emitOp(.pop);
+
+    if (match(.kw_else)) statement();
+    patchJump(else_jump);
 }
 
 fn printStatement() void {
