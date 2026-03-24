@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Chunk = @import("Chunk.zig");
+const JumpOffset = Chunk.JumpOffset;
 const OpCode = Chunk.OpCode;
 const compiler = @import("compiler.zig");
 const debug = @import("debug.zig");
@@ -69,13 +70,13 @@ fn run(self: *VM) !void {
                 self.pop().print();
                 std.debug.print("\n", .{});
             },
-            .jump => self.jump(self.readShort()),
+            .jump => self.jump(self.readJumpOffset()),
             .jump_if_false => {
-                const offset = self.readShort();
+                const offset = self.readJumpOffset();
                 if (isFalsey(self.peek(0))) self.jump(offset);
             },
             .jump_if_true => {
-                const offset = self.readShort();
+                const offset = self.readJumpOffset();
                 if (!isFalsey(self.peek(0))) self.jump(offset);
             },
             .@"return" => return,
@@ -190,13 +191,13 @@ fn readConstant(self: *VM) Value {
     return self.chunk.constants.items[self.readByte()];
 }
 
-fn readSignedShort(self: *VM) i16 {
-    const short = std.mem.readInt(i16, self.ip[0..2], .little);
+fn readJumpOffset(self: *VM) JumpOffset {
+    const short = std.mem.readInt(JumpOffset, self.ip[0..2], .little);
     self.ip += 2;
     return short;
 }
 
-fn jump(self: *VM, offset: i16) void {
+fn jump(self: *VM, offset: JumpOffset) void {
     if (offset < 0) {
         const i: u16 = @intCast(-offset);
         self.ip -= i;

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Chunk = @import("Chunk.zig");
+const JumpOffset = Chunk.JumpOffset;
 const debug = @import("debug.zig");
 const Scanner = @import("Scanner.zig");
 const Token = @import("Token.zig");
@@ -131,11 +132,11 @@ fn emitConstant(value: Value) void {
 fn patchJump(offset: usize) void {
     const jump = currentChunk().code.items.len - offset - 2;
 
-    if (jump > std.math.maxInt(i16)) {
+    if (jump > std.math.maxInt(JumpOffset)) {
         @"error"("Too much code to jump over.");
     }
 
-    const dest: i16 = @intCast(jump);
+    const dest: JumpOffset = @intCast(jump);
 
     const bytes = std.mem.toBytes(dest);
     currentChunk().code.replaceRangeAssumeCapacity(offset, 2, &bytes);

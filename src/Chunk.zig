@@ -4,6 +4,8 @@ const Value = @import("value.zig").Value;
 
 const Chunk = @This();
 
+pub const JumpOffset = i16;
+
 pub const OpCode = enum(u8) {
     constant,
     nil,
