@@ -77,6 +77,10 @@ fn run(self: *VM) !void {
                 const offset = self.readShort();
                 if (isFalsey(self.peek(0))) self.ip += offset;
             },
+            .jump_if_true => {
+                const offset = self.readShort();
+                if (!isFalsey(self.peek(0))) self.ip += offset;
+            },
             .@"return" => return,
             .negate => {
                 switch (self.stack.getLast()) {

@@ -26,7 +26,7 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
     return offset + switch (instruction) {
         .constant, .get_global, .define_global, .set_global => constantInstruction(@tagName(instruction), chunk, offset),
         .get_local, .set_local => byteInstruction(@tagName(instruction), chunk, offset),
-        .jump, .jump_if_false => jumpInstruction(@tagName(instruction), true, chunk, offset),
+        .jump, .jump_if_false, .jump_if_true => jumpInstruction(@tagName(instruction), true, chunk, offset),
         else => simpleInstruction(@tagName(instruction)),
     };
 }

@@ -468,13 +468,11 @@ fn number() void {
 }
 
 fn @"or"() void {
-    const elseJump = emitJump(.jump_if_false);
-    const endJump = emitJump(.jump);
+    const endJump = emitJump(.jump_if_true);
 
-    patchJump(elseJump);
     emitOp(.pop);
-
     parsePrecedence(.@"or");
+
     patchJump(endJump);
 }
 
