@@ -262,9 +262,11 @@ const ParseRules = struct {
         r.add(.slash, null, binary, .factor);
         r.add(.star, null, binary, .factor);
         r.add(.number, number, null, .none);
+        r.add(.kw_and, null, @"and", .@"and");
         r.add(.kw_false, literal, null, .none);
         r.add(.kw_true, literal, null, .none);
         r.add(.kw_nil, literal, null, .none);
+        r.add(.kw_or, null, @"or", .@"or");
         r.add(.bang, unary, null, .none);
         r.add(.bang_equal, null, binary, .equality);
         r.add(.equal_equal, null, binary, .equality);
@@ -363,6 +365,15 @@ fn defineVariable(global: u8) void {
     emitOp1(.define_global, global);
 }
 
+fn @"and"() void {
+    const endJump = emitJump(.jump_if_false);
+
+    emitOp(.pop);
+    parsePrecedence(.@"and");
+
+    patchJump(endJump);
+}
+
 fn expression() void {
     parsePrecedence(.assignment);
 }
@@ -454,6 +465,17 @@ fn synchronize() void {
 
 fn number() void {
     emitConstant(.{ .number = parser.previous.type.number });
+}
+
+fn @"or"() void {
+    const elseJump = emitJump(.jump_if_false);
+    const endJump = emitJump(.jump);
+
+    patchJump(elseJump);
+    emitOp(.pop);
+
+    parsePrecedence(.@"or");
+    patchJump(endJump);
 }
 
 fn string() void {
