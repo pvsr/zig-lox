@@ -69,17 +69,14 @@ fn run(self: *VM) !void {
                 self.pop().print();
                 std.debug.print("\n", .{});
             },
-            .jump => {
-                const offset = self.readShort();
-                self.ip += offset;
-            },
+            .jump => self.jump(self.readShort()),
             .jump_if_false => {
                 const offset = self.readShort();
-                if (isFalsey(self.peek(0))) self.ip += offset;
+                if (isFalsey(self.peek(0))) self.jump(offset);
             },
             .jump_if_true => {
                 const offset = self.readShort();
-                if (!isFalsey(self.peek(0))) self.ip += offset;
+                if (!isFalsey(self.peek(0))) self.jump(offset);
             },
             .@"return" => return,
             .negate => {
@@ -193,10 +190,20 @@ fn readConstant(self: *VM) Value {
     return self.chunk.constants.items[self.readByte()];
 }
 
-fn readShort(self: *VM) u16 {
-    const short = std.mem.readInt(u16, self.ip[0..2], .little);
+fn readSignedShort(self: *VM) i16 {
+    const short = std.mem.readInt(i16, self.ip[0..2], .little);
     self.ip += 2;
     return short;
+}
+
+fn jump(self: *VM, offset: i16) void {
+    if (offset < 0) {
+        const i: u16 = @intCast(-offset);
+        self.ip -= i;
+    } else {
+        const i: u16 = @intCast(offset);
+        self.ip += i;
+    }
 }
 
 fn push(self: *VM, val: Value) void {

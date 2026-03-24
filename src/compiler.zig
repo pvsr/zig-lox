@@ -131,11 +131,11 @@ fn emitConstant(value: Value) void {
 fn patchJump(offset: usize) void {
     const jump = currentChunk().code.items.len - offset - 2;
 
-    if (jump > std.math.maxInt(u16)) {
+    if (jump > std.math.maxInt(i16)) {
         @"error"("Too much code to jump over.");
     }
 
-    const dest: u16 = @intCast(jump);
+    const dest: i16 = @intCast(jump);
 
     const bytes = std.mem.toBytes(dest);
     currentChunk().code.replaceRangeAssumeCapacity(offset, 2, &bytes);

@@ -26,7 +26,7 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
     return offset + switch (instruction) {
         .constant, .get_global, .define_global, .set_global => constantInstruction(@tagName(instruction), chunk, offset),
         .get_local, .set_local => byteInstruction(@tagName(instruction), chunk, offset),
-        .jump, .jump_if_false, .jump_if_true => jumpInstruction(@tagName(instruction), true, chunk, offset),
+        .jump, .jump_if_false, .jump_if_true => jumpInstruction(@tagName(instruction), chunk, offset),
         else => simpleInstruction(@tagName(instruction)),
     };
 }
@@ -50,10 +50,16 @@ fn byteInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
     return 2;
 }
 
-fn jumpInstruction(name: []const u8, positive: bool, chunk: *Chunk, offset: usize) u8 {
-    const jump = std.mem.readVarInt(u16, chunk.code.items[offset + 1 .. offset + 3], .little);
+fn jumpInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
+    const jump = std.mem.readVarInt(i16, chunk.code.items[offset + 1 .. offset + 3], .little);
     var dest = offset + 3;
-    if (positive) dest += jump else dest -= jump;
+    if (offset < 0) {
+        const i: u16 = @intCast(-jump);
+        dest -= i;
+    } else {
+        const i: u16 = @intCast(jump);
+        dest += i;
+    }
     std.debug.print("{s:<16} {d:4} -> {d}\n", .{ name, offset, dest });
     return 3;
 }
