@@ -19,7 +19,7 @@ const Parser = struct {
     panicMode: bool = false,
 };
 
-const MAX_LOCALS = 0xFF;
+const MAX_LOCALS = std.math.maxInt(u8);
 
 const Local = struct {
     name: Token,
@@ -131,21 +131,23 @@ fn emitConstant(value: Value) void {
 fn patchJump(offset: usize) void {
     const jump = currentChunk().code.items.len - offset - 2;
 
-    if (jump > 0xFFFF) {
+    if (jump > std.math.maxInt(u16)) {
         @"error"("Too much code to jump over.");
     }
 
-    currentChunk().code.items[offset] = @truncate(jump >> 8);
-    currentChunk().code.items[offset + 1] = @truncate(jump);
+    const dest: u16 = @intCast(jump);
+
+    const bytes = std.mem.toBytes(dest);
+    currentChunk().code.replaceRangeAssumeCapacity(offset, 2, &bytes);
 }
 
 fn makeConstant(value: Value) u8 {
     const constant = currentChunk().addConstant(value);
-    if (constant > 0xFF) {
+    if (constant > std.math.maxInt(u8)) {
         @"error"("Too many constants in one chunk.");
         return 0;
     }
-    return @truncate(constant);
+    return @intCast(constant);
 }
 
 fn endCompiler() void {

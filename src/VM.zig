@@ -194,9 +194,7 @@ fn readConstant(self: *VM) Value {
 }
 
 fn readShort(self: *VM) u16 {
-    var short: u16 = self.ip[0];
-    short <<= 8;
-    short |= self.ip[1];
+    const short = std.mem.readInt(u16, self.ip[0..2], .little);
     self.ip += 2;
     return short;
 }
