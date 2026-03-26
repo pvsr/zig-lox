@@ -89,12 +89,7 @@ fn run(self: *VM) !void {
             .add => try self.addOrConcat(),
             .subtract, .multiply, .divide, .greater, .less => try self.binaryOp(instruction),
             .not => self.push(.{ .bool = isFalsey(self.pop()) }),
-            .constant => {
-                const constant = self.readConstant();
-                constant.print();
-                std.debug.print("\n", .{});
-                self.push(constant);
-            },
+            .constant => self.push(self.readConstant()),
             .nil => self.push(Value.nil),
             .true => self.push(.{ .bool = true }),
             .false => self.push(.{ .bool = false }),
