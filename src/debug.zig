@@ -40,7 +40,7 @@ fn simpleInstruction(name: []const u8) u8 {
 fn constantInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
     const constant = chunk.code.items[offset + 1];
     std.debug.print("{s:<16} {d:4} '", .{ name, constant });
-    chunk.constants.items[constant].print();
+    chunk.constants.items[constant].debug();
     std.debug.print("'\n", .{});
     return 2;
 }

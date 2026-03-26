@@ -1,4 +1,6 @@
 const std = @import("std");
+const Writer = std.Io.Writer;
+const Reader = std.Io.Reader;
 
 const Chunk = @import("Chunk.zig");
 const JumpOffset = Chunk.JumpOffset;
@@ -22,8 +24,9 @@ stack: std.ArrayList(Value),
 objects: *Objects,
 globals: Table,
 gpa: std.mem.Allocator,
+out: *Writer,
 
-pub fn init(gpa: std.mem.Allocator) !VM {
+pub fn init(gpa: std.mem.Allocator, out: *Writer) !VM {
     return .{
         .chunk = undefined,
         .ip = undefined,
@@ -31,6 +34,7 @@ pub fn init(gpa: std.mem.Allocator) !VM {
         .objects = .init(gpa),
         .globals = Table.init(gpa),
         .gpa = gpa,
+        .out = out,
     };
 }
 
@@ -40,7 +44,7 @@ pub fn deinit(self: *VM) void {
     self.objects.deinit(self.gpa);
 }
 
-pub fn interpret(self: *VM, source: *std.Io.Reader) !void {
+pub fn interpret(self: *VM, source: *Reader) !void {
     var chunk: Chunk = .init(self.gpa);
     defer chunk.deinit();
 
@@ -58,7 +62,7 @@ fn run(self: *VM) !void {
             std.debug.print("          ", .{});
             for (self.stack.items) |slot| {
                 std.debug.print("[ ", .{});
-                slot.print();
+                slot.debug();
                 std.debug.print(" ]", .{});
             }
             std.debug.print("\n", .{});
@@ -66,10 +70,7 @@ fn run(self: *VM) !void {
         }
         const instruction: OpCode = @enumFromInt(self.readByte());
         switch (instruction) {
-            .print => {
-                self.pop().print();
-                std.debug.print("\n", .{});
-            },
+            .print => self.print(self.pop()) catch return self.runtimeError("Write error.", .{}),
             .jump => self.jump(self.readJumpOffset()),
             .jump_if_false => {
                 const offset = self.readJumpOffset();
@@ -80,11 +81,9 @@ fn run(self: *VM) !void {
                 if (!isFalsey(self.peek(0))) self.jump(offset);
             },
             .@"return" => return,
-            .negate => {
-                switch (self.stack.getLast()) {
-                    .number => |a| self.push(.{ .number = -a }),
-                    else => return self.runtimeError("Operand must be a number.", .{}),
-                }
+            .negate => switch (self.stack.getLast()) {
+                .number => |a| self.push(.{ .number = -a }),
+                else => return self.runtimeError("Operand must be a number.", .{}),
             },
             .add => try self.addOrConcat(),
             .subtract, .multiply, .divide, .greater, .less => try self.binaryOp(instruction),
@@ -202,6 +201,12 @@ fn jump(self: *VM, offset: JumpOffset) void {
     }
 }
 
+fn print(self: *VM, value: Value) !void {
+    try value.write(self.out);
+    try self.out.writeByte('\n');
+    try self.out.flush();
+}
+
 fn push(self: *VM, val: Value) void {
     self.stack.append(self.gpa, val) catch unreachable;
 }
@@ -234,27 +239,35 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) Interpre
 }
 
 fn interpretStr(self: *VM, source: []const u8) !void {
-    var r: std.Io.Reader = .fixed(source);
+    var r: Reader = .fixed(source);
     return self.interpret(&r);
 }
 
 test {
-    var vm = try VM.init(std.testing.allocator);
+    var out_buf: [256]u8 = undefined;
+    var w: Writer = .fixed(&out_buf);
+    var vm = try VM.init(std.testing.allocator, &w);
     defer vm.deinit();
-    try vm.interpretStr(
+    try testInterpret(&vm,
         \\print "=" + "=" + "=" + ("=" + "=" + "=");
-    );
-    try vm.interpretStr(
+    , "======\n");
+    try testInterpret(&vm,
         \\// print "not printed";
-        \\print "hello " + "to" + " " + "read" + "ers" + " " + "of the vm tests";
+        \\print "hello " + "vm" + " " + "tests";
         \\// print "also not printed"
-    );
-    try vm.interpretStr(
+    , "hello vm tests\n");
+    try testInterpret(&vm,
         \\var x = 1.5;
         \\var y = 2;
         \\print x + y + 3.5;
-    );
-    try vm.interpretStr(
+    , "7\n");
+    try testInterpret(&vm,
         \\print !!true;
-    );
+    , "true\n");
+}
+
+fn testInterpret(vm: *VM, src: []const u8, expected: []const u8) !void {
+    try vm.interpretStr(src);
+    try std.testing.expectEqualSlices(u8, vm.out.buffered(), expected);
+    _ = vm.out.consumeAll();
 }

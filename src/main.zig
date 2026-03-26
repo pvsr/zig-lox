@@ -6,7 +6,10 @@ const VM = @import("VM.zig");
 pub fn main() !void {
     var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
     const allocator = debug_allocator.allocator();
-    var vm = try VM.init(allocator);
+    var stdout_buf: [4096]u8 = undefined;
+    var out = std.fs.File.stdout().writer(&stdout_buf);
+    const w = &out.interface;
+    var vm = try VM.init(allocator, w);
     switch (std.os.argv.len) {
         1 => try repl(&vm),
         2 => try runFile(&vm, std.mem.span(std.os.argv[1])),

@@ -29,13 +29,17 @@ pub const Value = union(Type) {
         return .{ .str = objects.createStr(gpa, slice, owned).* };
     }
 
-    pub fn print(self: Value) void {
-        switch (self) {
-            .bool => |b| std.debug.print("{}", .{b}),
-            .number => |n| std.debug.print("{d}", .{n}),
-            .str => |s| std.debug.print("{s}", .{s.slice}),
-            .nil => std.debug.print("nil", .{}),
-        }
+    pub fn write(self: Value, w: anytype) !void {
+        return switch (self) {
+            .bool => |b| w.print("{}", .{b}),
+            .number => |n| w.print("{d}", .{n}),
+            .str => |s| w.print("{s}", .{s.slice}),
+            .nil => w.print("nil", .{}),
+        };
+    }
+
+    pub fn debug(self: Value) void {
+        self.write(std.debug) catch unreachable;
     }
 
     pub fn equals(self: Value, other: Value) bool {
