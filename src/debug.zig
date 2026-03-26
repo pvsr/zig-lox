@@ -1,8 +1,9 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Chunk = @import("Chunk.zig");
 
-pub var DEBUG = true;
+pub var DEBUG = builtin.mode == .Debug;
 
 pub fn disassembleChunk(chunk: *Chunk, name: []const u8) void {
     std.debug.print("== {s} ==\n", .{name});
