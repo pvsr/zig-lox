@@ -129,6 +129,19 @@ fn emitConstant(value: Value) void {
     emitOp1(.constant, makeConstant(value));
 }
 
+fn emitLoop(loopStart: usize) void {
+    emitOp(.jump);
+
+    const offset = currentChunk().code.items.len - loopStart + 2;
+    if (offset > std.math.maxInt(JumpOffset)) {
+        @"error"("Loop body too large");
+    }
+
+    const dest: JumpOffset = @intCast(offset);
+
+    for (std.mem.toBytes(-dest)) |byte| emitByte(byte);
+}
+
 fn patchJump(offset: usize) void {
     const jump = currentChunk().code.items.len - offset - 2;
 
@@ -414,6 +427,8 @@ fn statement() void {
         printStatement();
     } else if (match(.kw_if)) {
         ifStatement();
+    } else if (match(.kw_while)) {
+        whileStatement();
     } else if (match(.left_brace)) {
         beginScope();
         block();
@@ -451,6 +466,21 @@ fn printStatement() void {
     expression();
     consume(.semicolon, "Expect ; after value.");
     emitOp(.print);
+}
+
+fn whileStatement() void {
+    const loopStart = currentChunk().code.items.len;
+    consume(.left_paren, "Expect '(' after while.");
+    expression();
+    consume(.right_paren, "Expect ')' after condition.");
+
+    const exitJump = emitJump(.jump_if_false);
+    emitOp(.pop);
+    statement();
+    emitLoop(loopStart);
+
+    patchJump(exitJump);
+    emitOp(.pop);
 }
 
 fn synchronize() void {

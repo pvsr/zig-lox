@@ -54,7 +54,7 @@ fn byteInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
 fn jumpInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
     const jump = std.mem.readVarInt(Chunk.JumpOffset, chunk.code.items[offset + 1 .. offset + 3], .little);
     var dest = offset + 3;
-    if (offset < 0) {
+    if (jump < 0) {
         const i: u16 = @intCast(-jump);
         dest -= i;
     } else {
