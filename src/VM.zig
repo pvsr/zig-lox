@@ -249,6 +249,8 @@ test {
     try testInterpretErr(&vm, "var = 0;", error.CompileError);
     try testInterpretErr(&vm, "1 + true;", error.RuntimeError);
 
+    try testInterpret(&vm, "print !!true;", "true\n");
+    try testInterpret(&vm, "{var a = 1; print a;}", "1\n");
     try testInterpret(&vm,
         \\print "=" + "=" + "=" + ("=" + "=" + "=");
     , "======\n");
@@ -262,9 +264,6 @@ test {
         \\var y = 2;
         \\print x + y + 3.5;
     , "7\n");
-    try testInterpret(&vm,
-        \\print !!true;
-    , "true\n");
     try testInterpret(&vm,
         \\var i = 0;
         \\while (i < 3) { print i; i = i + 1; }

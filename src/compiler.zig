@@ -332,7 +332,7 @@ fn parsePrecedence(precedence: Precedence) void {
 
 fn identifierConstant(name: Token) u8 {
     return switch (name.type) {
-        .identifier => makeConstant(.ownedStr(parser.gpa, parser.objects, name.type.identifier)),
+        .identifier => |slice| makeConstant(.copyStr(parser.gpa, parser.objects, slice)),
         else => 0,
     };
 }

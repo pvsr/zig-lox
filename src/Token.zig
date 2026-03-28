@@ -58,7 +58,7 @@ pub fn init(scanner: *Scanner, tokenType: Token.Type) Token {
     return .{
         .line = scanner.line,
         .type = switch (tokenType) {
-            .identifier => .{ .identifier = string(scanner) },
+            .identifier => .{ .identifier = scanner.out.buffered() },
             .string => .{ .string = string(scanner) },
             .number => .{ .number = number(scanner) },
             .err => unreachable,
@@ -84,7 +84,7 @@ fn number(scanner: *Scanner) f64 {
 
 pub fn deinit(self: Token, alloc: std.mem.Allocator) void {
     switch (self.type) {
-        .string, .identifier => |slice| alloc.free(slice),
+        .string => |slice| alloc.free(slice),
         else => {},
     }
 }
