@@ -118,7 +118,7 @@ fn emitJump(op: Chunk.OpCode) usize {
     emitOp(op);
     emitByte(0xFF);
     emitByte(0xFF);
-    return currentChunk().code.items.len - 2;
+    return currentChunk().position() - 2;
 }
 
 fn emitReturn() void {
@@ -132,7 +132,7 @@ fn emitConstant(value: Value) void {
 fn emitLoop(loopStart: usize) void {
     emitOp(.jump);
 
-    const offset = currentChunk().code.items.len - loopStart + 2;
+    const offset = currentChunk().position() - loopStart + 2;
     if (offset > std.math.maxInt(JumpOffset)) {
         @"error"("Loop body too large");
     }
@@ -143,7 +143,7 @@ fn emitLoop(loopStart: usize) void {
 }
 
 fn patchJump(offset: usize) void {
-    const jump = currentChunk().code.items.len - offset - 2;
+    const jump = currentChunk().position() - offset - 2;
 
     if (jump > std.math.maxInt(JumpOffset)) {
         @"error"("Too much code to jump over.");
@@ -469,7 +469,7 @@ fn printStatement() void {
 }
 
 fn whileStatement() void {
-    const loopStart = currentChunk().code.items.len;
+    const loopStart = currentChunk().position();
     consume(.left_paren, "Expect '(' after while.");
     expression();
     consume(.right_paren, "Expect ')' after condition.");

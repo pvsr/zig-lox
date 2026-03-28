@@ -62,3 +62,7 @@ pub fn addConstant(self: *Chunk, value: Value) usize {
     self.constants.append(self.gpa, value) catch unreachable;
     return self.constants.items.len - 1;
 }
+
+pub fn position(self: Chunk) usize {
+    return self.code.items.len;
+}

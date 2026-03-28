@@ -18,23 +18,20 @@ pub const InterpreterError = error{ CompileError, RuntimeError };
 
 const STACK_MAX = 256;
 
-chunk: *Chunk,
-ip: [*]u8,
-stack: std.ArrayList(Value),
-objects: *Objects,
-globals: Table,
 gpa: std.mem.Allocator,
 out: *Writer,
+globals: Table,
+objects: *Objects,
+stack: std.ArrayList(Value) = .empty,
+chunk: *Chunk = undefined,
+ip: [*]u8 = undefined,
 
 pub fn init(gpa: std.mem.Allocator, out: *Writer) !VM {
     return .{
-        .chunk = undefined,
-        .ip = undefined,
-        .stack = std.ArrayList(Value).empty,
-        .objects = .init(gpa),
-        .globals = Table.init(gpa),
         .gpa = gpa,
         .out = out,
+        .globals = .init(gpa),
+        .objects = .init(gpa),
     };
 }
 
@@ -106,7 +103,7 @@ fn run(self: *VM) !void {
                 if (self.globals.get(name)) |value| {
                     self.push(value);
                 } else {
-                    return self.runtimeError("Undefined variable {s}\n", .{name.slice});
+                    return self.runtimeError("Undefined variable '{s}'\n", .{name.slice});
                 }
             },
             .define_global => {
@@ -245,8 +242,8 @@ fn interpretStr(self: *VM, source: []const u8) !void {
 
 test {
     var out_buf: [256]u8 = undefined;
-    var w: Writer = .fixed(&out_buf);
-    var vm = try VM.init(std.testing.allocator, &w);
+    var out: Writer = .fixed(&out_buf);
+    var vm = try VM.init(std.testing.allocator, &out);
     defer vm.deinit();
     try testInterpret(&vm,
         \\print "=" + "=" + "=" + ("=" + "=" + "=");
