@@ -428,6 +428,8 @@ fn varDeclaration() void {
 fn statement() void {
     if (match(.kw_print)) {
         printStatement();
+    } else if (match(.kw_for)) {
+        forStatement();
     } else if (match(.kw_if)) {
         ifStatement();
     } else if (match(.kw_while)) {
@@ -445,6 +447,49 @@ fn expressionStatement() void {
     expression();
     consume(.semicolon, "Expect ; after value.");
     emitOp(.pop);
+}
+
+fn forStatement() void {
+    beginScope();
+    consume(.left_paren, "Expect '(' after 'for'.");
+    if (match(.semicolon)) {
+        // no initializer
+    } else if (match(.kw_var)) {
+        varDeclaration();
+    } else {
+        expressionStatement();
+    }
+
+    var loopStart = currentChunk().position();
+    var exitJump: ?usize = null;
+    if (!match(.semicolon)) {
+        expression();
+        consume(.semicolon, "Expect ';' after loop condition.");
+        exitJump = emitJump(.jump_if_false);
+        emitOp(.pop);
+    }
+
+    if (!match(.right_paren)) {
+        const bodyJump = emitJump(.jump);
+        const incrementStart = currentChunk().position();
+        expression();
+        emitOp(.pop);
+        consume(.right_paren, "Expect ')' after for clauses.");
+
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    statement();
+    emitLoop(loopStart);
+
+    if (exitJump) |jump| {
+        patchJump(jump);
+        emitOp(.pop);
+    }
+
+    endScope();
 }
 
 fn ifStatement() void {

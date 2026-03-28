@@ -269,6 +269,9 @@ test {
         \\var i = 0;
         \\while (i < 3) { print i; i = i + 1; }
     , "0\n1\n2\n");
+    try testInterpret(&vm,
+        \\for (var i = 0; i < 3; i = i + 1) { print i; }
+    , "0\n1\n2\n");
 }
 
 fn testInterpret(vm: *VM, src: []const u8, expected: []const u8) !void {
