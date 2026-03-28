@@ -357,7 +357,7 @@ fn declareVariable() void {
     var i = compiler.localCount;
     while (i > 0) : (i -= 1) {
         const local = compiler.locals[i - 1];
-        if (local.depth orelse 0 > compiler.scopeDepth) break;
+        if (local.depth != null and local.depth.? < compiler.scopeDepth) break;
 
         if (std.mem.eql(u8, name.type.identifier, local.name.type.identifier)) {
             @"error"("Already a variable with this name in scope.");
