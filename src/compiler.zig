@@ -331,7 +331,10 @@ fn parsePrecedence(precedence: Precedence) void {
 }
 
 fn identifierConstant(name: Token) u8 {
-    return makeConstant(.ownedStr(parser.gpa, parser.objects, name.type.identifier));
+    return switch (name.type) {
+        .identifier => makeConstant(.ownedStr(parser.gpa, parser.objects, name.type.identifier)),
+        else => 0,
+    };
 }
 
 fn addLocal(name: Token) void {

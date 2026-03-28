@@ -245,6 +245,10 @@ test {
     var out: Writer = .fixed(&out_buf);
     var vm = try VM.init(std.testing.allocator, &out);
     defer vm.deinit();
+
+    try testInterpretErr(&vm, "var = 0;", error.CompileError);
+    try testInterpretErr(&vm, "1 + true;", error.RuntimeError);
+
     try testInterpret(&vm,
         \\print "=" + "=" + "=" + ("=" + "=" + "=");
     , "======\n");
@@ -271,4 +275,8 @@ fn testInterpret(vm: *VM, src: []const u8, expected: []const u8) !void {
     try vm.interpretStr(src);
     try std.testing.expectEqualSlices(u8, vm.out.buffered(), expected);
     _ = vm.out.consumeAll();
+}
+
+fn testInterpretErr(vm: *VM, src: []const u8, expected: anyerror) !void {
+    try std.testing.expectError(expected, vm.interpretStr(src));
 }
