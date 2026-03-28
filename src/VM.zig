@@ -79,7 +79,7 @@ fn run(self: *VM) !void {
             },
             .@"return" => return,
             .negate => switch (self.stack.getLast()) {
-                .number => |a| self.push(.{ .number = -a }),
+                .number => self.push(.{ .number = -self.pop().number }),
                 else => return self.runtimeError("Operand must be a number.", .{}),
             },
             .add => try self.addOrConcat(),
@@ -261,9 +261,9 @@ test {
     , "hello vm tests\n");
     try testInterpret(&vm,
         \\var x = 1.5;
-        \\var y = 2;
+        \\var y = -2;
         \\print x + y + 3.5;
-    , "7\n");
+    , "3\n");
     try testInterpret(&vm,
         \\var i = 0;
         \\while (i < 3) { print i; i = i + 1; }
@@ -275,7 +275,7 @@ test {
 
 fn testInterpret(vm: *VM, src: []const u8, expected: []const u8) !void {
     try vm.interpretStr(src);
-    try std.testing.expectEqualSlices(u8, vm.out.buffered(), expected);
+    try std.testing.expectEqualSlices(u8, expected, vm.out.buffered());
     _ = vm.out.consumeAll();
 }
 
