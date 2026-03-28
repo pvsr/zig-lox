@@ -63,6 +63,6 @@ pub fn addConstant(self: *Chunk, value: Value) usize {
     return self.constants.items.len - 1;
 }
 
-pub fn position(self: Chunk) usize {
+pub fn size(self: Chunk) usize {
     return self.code.items.len;
 }

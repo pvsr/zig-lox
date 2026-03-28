@@ -118,7 +118,7 @@ fn emitJump(op: Chunk.OpCode) usize {
     emitOp(op);
     emitByte(0xFF);
     emitByte(0xFF);
-    return currentChunk().position() - 2;
+    return currentChunk().size() - 2;
 }
 
 fn emitReturn() void {
@@ -132,27 +132,27 @@ fn emitConstant(value: Value) void {
 fn emitLoop(loopStart: usize) void {
     emitOp(.jump);
 
-    const offset = currentChunk().position() - loopStart + 2;
-    if (offset > std.math.maxInt(JumpOffset)) {
+    const dist = currentChunk().size() - loopStart + 2;
+    if (dist > std.math.maxInt(JumpOffset)) {
         @"error"("Loop body too large");
     }
 
-    const dest: JumpOffset = @intCast(offset);
+    const offset: JumpOffset = @intCast(dist);
 
-    for (std.mem.toBytes(-dest)) |byte| emitByte(byte);
+    for (std.mem.toBytes(-offset)) |byte| emitByte(byte);
 }
 
-fn patchJump(offset: usize) void {
-    const jump = currentChunk().position() - offset - 2;
+fn patchJump(jump: usize) void {
+    const dist = currentChunk().size() - jump - 2;
 
-    if (jump > std.math.maxInt(JumpOffset)) {
+    if (dist > std.math.maxInt(JumpOffset)) {
         @"error"("Too much code to jump over.");
     }
 
-    const dest: JumpOffset = @intCast(jump);
+    const offset: JumpOffset = @intCast(dist);
 
-    const bytes = std.mem.toBytes(dest);
-    currentChunk().code.replaceRangeAssumeCapacity(offset, 2, &bytes);
+    const bytes = std.mem.toBytes(offset);
+    currentChunk().code.replaceRangeAssumeCapacity(jump, 2, &bytes);
 }
 
 fn makeConstant(value: Value) u8 {
@@ -458,7 +458,7 @@ fn forStatement() void {
         expressionStatement();
     }
 
-    var loopStart = currentChunk().position();
+    var loopStart = currentChunk().size();
     var exitJump: ?usize = null;
     if (!match(.semicolon)) {
         expression();
@@ -469,7 +469,7 @@ fn forStatement() void {
 
     if (!match(.right_paren)) {
         const bodyJump = emitJump(.jump);
-        const incrementStart = currentChunk().position();
+        const incrementStart = currentChunk().size();
         expression();
         emitOp(.pop);
         consume(.right_paren, "Expect ')' after for clauses.");
@@ -515,7 +515,7 @@ fn printStatement() void {
 }
 
 fn whileStatement() void {
-    const loopStart = currentChunk().position();
+    const loopStart = currentChunk().size();
     consume(.left_paren, "Expect '(' after while.");
     expression();
     consume(.right_paren, "Expect ')' after condition.");
