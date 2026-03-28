@@ -331,10 +331,8 @@ fn parsePrecedence(precedence: Precedence) void {
 }
 
 fn identifierConstant(name: Token) u8 {
-    return switch (name.type) {
-        .identifier => |slice| makeConstant(.copyStr(parser.gpa, parser.objects, slice)),
-        else => 0,
-    };
+    if (name.type != .identifier) return 0;
+    return makeConstant(.copyStr(parser.gpa, parser.objects, name.type.identifier));
 }
 
 fn addLocal(name: Token) void {
