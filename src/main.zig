@@ -1,5 +1,9 @@
 const std = @import("std");
 
+const bestline = @cImport({
+    @cInclude("bestline.h");
+});
+
 const VM = @import("VM.zig");
 
 pub fn main(init: std.process.Init) !void {
@@ -10,7 +14,7 @@ pub fn main(init: std.process.Init) !void {
     var vm = try VM.init(gpa, &stdout.interface, &stack_buf);
     const args = try init.minimal.args.toSlice(init.arena.allocator());
     switch (args.len) {
-        1 => try repl(init.io, &vm),
+        1 => try repl(&vm),
         2 => try runFile(init.io, &vm, args[1]),
         else => {
             std.debug.print("Usage: zlox [path]\n", .{});
@@ -20,24 +24,26 @@ pub fn main(init: std.process.Init) !void {
     vm.deinit();
 }
 
-fn repl(io: std.Io, vm: *VM) !void {
-    var buf: [1024]u8 = undefined;
-    var stdin = std.Io.File.stdin().reader(io, &buf);
+fn repl(vm: *VM) !void {
     while (true) {
-        std.debug.print(">> ", .{});
-        if (stdin.interface.takeDelimiter('\n')) |line| {
-            if (line) |l| {
-                if (std.mem.eql(u8, ".exit;", l)) return;
-                vm.interpretStr(l) catch {};
-            } else {
-                break;
-            }
-        } else |err| switch (err) {
-            error.StreamTooLong => {
-                std.debug.print("Input too long, not executing.\n", .{});
-                _ = try stdin.interface.discardRemaining();
-            },
-            error.ReadFailed => return,
+        const raw = bestline.bestlineWithHistory(">> ", "zlox");
+        if (raw) |_| {
+            const slice = std.mem.span(raw);
+            const trimmed = std.mem.trim(u8, slice, " ");
+            if (trimmed.len == 0) continue;
+            if (std.mem.eql(u8, ".exit", trimmed)) return;
+
+            const last = trimmed[trimmed.len - 1];
+            const unterminated = last != ';' and last != '}';
+            const line = if (unterminated)
+                try std.mem.concat(vm.gpa, u8, &[_][]const u8{ trimmed, ";" })
+            else
+                trimmed;
+            defer if (unterminated) vm.gpa.free(line);
+
+            vm.interpretStr(line) catch {};
+        } else {
+            return;
         }
     }
 }

@@ -1,6 +1,12 @@
 .{
     .name = .lox,
     .version = "0.0.1",
+    .dependencies = .{
+        .bestline = .{
+            .url = "https://github.com/jart/bestline/archive/master.tar.gz",
+            .hash = "N-V-__8AAE3fHQGvjfkDRURnfqgvr3qlTSIVqBJOKl6Eml_-",
+        },
+    },
     .minimum_zig_version = "0.15.2",
     .paths = .{""},
     .fingerprint = 0x23765301b2f1d54,

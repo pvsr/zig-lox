@@ -10,6 +10,13 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
 
+    const bestline = b.dependency("bestline", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    module.addCSourceFile(.{ .file = bestline.path("bestline.c") });
+    module.addIncludePath(bestline.path(""));
+
     const exe = b.addExecutable(.{
         .name = "zlox",
         .root_module = module,
