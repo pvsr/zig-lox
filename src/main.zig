@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const bestline = @cImport({
+const c = @cImport({
     @cInclude("bestline.h");
 });
 
@@ -26,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
 
 fn repl(vm: *VM) !void {
     while (true) {
-        const raw = bestline.bestlineWithHistory(">> ", "zlox");
+        const raw = c.bestlineWithHistory(">> ", "zlox");
         if (raw) |_| {
             const slice = std.mem.span(raw);
             const trimmed = std.mem.trim(u8, slice, " ");
