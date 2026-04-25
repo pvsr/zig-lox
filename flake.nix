@@ -25,12 +25,10 @@
             nativeBuildInputs = [ pkgs.zig ];
             meta.mainProgram = "zlox";
             doCheck = true;
-            zigDeps = (
-              pkgs.zig.fetchDeps {
-                inherit (finalAttrs) src pname version;
-                hash = "sha256-uA/s+JPpKlvPNUkFkwZpR/SAU6CakOKruOX04nCtNP0=";
-              }
-            );
+            zigDeps = pkgs.zig_0_16.fetchDeps {
+              inherit (finalAttrs) src pname version;
+              hash = "sha256-cX1Ev7h7IpXN9q7/58Rqs2q4Mz8M2BtLYLSXjjpmcOc=";
+            };
             postConfigure = ''
               ln -s ${finalAttrs.zigDeps} "$ZIG_GLOBAL_CACHE_DIR/p"
             '';
@@ -64,8 +62,8 @@
         _: pkgs: {
           default = pkgs.mkShell {
             packages = [
-              pkgs.zig
-              pkgs.zls
+              pkgs.zig_0_16
+              pkgs.zls_0_16
             ];
           };
         }
