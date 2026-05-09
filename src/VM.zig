@@ -255,32 +255,44 @@ test {
     try testInterpretErr(&vm, "var = 0;", error.CompileError);
     try testInterpretErr(&vm, "1 + true;", error.RuntimeError);
 
-    try testInterpret(&vm, "print !!true;", "true\n");
-    try testInterpret(&vm, "{var a = 1; print a;}", "1\n");
+    try testInterpret(&vm, "!true;", .{ .bool = false });
+    try testInterpret(&vm, "!!true;", .{ .bool = true });
+    try testInterpret(&vm, "100 / -5;", .{ .number = -20 });
     try testInterpret(&vm,
-        \\print "=" + "=" + "=" + ("=" + "=" + "=");
-    , "======\n");
+        \\"=" + "=" + "=" + ("=" + "=" + "=");
+    , testStr(&vm, "======"));
     try testInterpret(&vm,
+        \\var x = 1.5;
+        \\var y = -2;
+        \\x + y + 3.5;
+    , .{ .number = 3 });
+
+    try testInterpretOut(&vm, "{var a = 1; print a;}", "1\n");
+    try testInterpretOut(&vm,
         \\// print "not printed";
         \\print "hello " + "vm" + " " + "tests";
         \\// print "also not printed"
     , "hello vm tests\n");
-    try testInterpret(&vm,
-        \\var x = 1.5;
-        \\var y = -2;
-        \\print x + y + 3.5;
-    , "3\n");
-    try testInterpret(&vm,
+    try testInterpretOut(&vm,
         \\var i = 0;
         \\while (i < 3) { print i; i = i + 1; }
     , "0\n1\n2\n");
-    try testInterpret(&vm,
+    try testInterpretOut(&vm,
         \\for (var i = 0; i < 3; i = i + 1) { print i; }
     , "0\n1\n2\n");
 }
+fn testStr(vm: *VM, slice: []const u8) Value {
+    return .copyStr(vm.gpa, vm.objects, slice);
+}
 
-fn testInterpret(vm: *VM, src: []const u8, expected: []const u8) !void {
-    try vm.interpretStr(src);
+fn testInterpret(vm: *VM, src: []const u8, expected: Value) !void {
+    const result = try vm.interpretStr(src);
+    try std.testing.expect(result != null);
+    try std.testing.expectEqual(expected, result.?);
+}
+
+fn testInterpretOut(vm: *VM, src: []const u8, expected: []const u8) !void {
+    _ = try vm.interpretStr(src);
     try std.testing.expectEqualSlices(u8, expected, vm.out.buffered());
     _ = vm.out.consumeAll();
 }
