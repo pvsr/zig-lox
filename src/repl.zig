@@ -39,6 +39,7 @@ pub fn run(vm: *VM) !void {
                     std.debug.print("\n", .{});
                 }
             } else |_| {}
+            std.c.free(raw);
         } else switch (posix.errno(-1)) {
             // ctrl-c
             .INTR => std.c._errno().* = 0,
