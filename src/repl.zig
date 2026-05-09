@@ -20,7 +20,7 @@ pub fn run(vm: *VM) !void {
             const slice = std.mem.span(raw);
             const trimmed = std.mem.trim(u8, slice, " ");
             if (trimmed.len == 0) continue;
-            if (trimmed[0] == '.') switch (handleCommand(trimmed)) {
+            if (trimmed[0] == '.') switch (handleCommand(vm, trimmed[1..])) {
                 .handled => continue,
                 .exit => return,
             };
@@ -49,8 +49,20 @@ pub fn run(vm: *VM) !void {
     }
 }
 
-fn handleCommand(cmd: []const u8) (enum { handled, exit }) {
-    if (std.mem.eql(u8, ".exit", cmd)) return .exit;
-    std.debug.print("unrecognized command {s}\n", .{cmd});
+fn handleCommand(vm: *VM, cmd: []const u8) enum { handled, exit } {
+    if (std.mem.eql(u8, "exit", cmd)) return .exit;
+
+    if (std.mem.eql(u8, "vars", cmd)) {
+        const count = vm.globals.count();
+        std.debug.print("{d} global{s} defined\n", .{ count, if (count == 1) "" else "s" });
+        var it = vm.globals.iterator();
+        while (it.next()) |entry| {
+            std.debug.print("{s}: ", .{entry.key_ptr.*.slice});
+            entry.value_ptr.debug();
+            std.debug.print("\n", .{});
+        }
+    } else {
+        std.debug.print("unrecognized command {s}\n", .{cmd});
+    }
     return .handled;
 }
