@@ -1,10 +1,10 @@
 const std = @import("std");
 
+const VM = @import("VM.zig");
+
 const c = @cImport({
     @cInclude("bestline.h");
 });
-
-const VM = @import("VM.zig");
 
 pub fn main(init: std.process.Init) !void {
     const gpa = init.gpa;
@@ -25,6 +25,12 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn repl(vm: *VM) !void {
+    const sa = std.posix.Sigaction{
+        .handler = .{ .handler = std.posix.SIG.IGN },
+        .mask = std.posix.sigemptyset(),
+        .flags = 0,
+    };
+    std.posix.sigaction(std.posix.SIG.INT, &sa, null);
     while (true) {
         const raw = c.bestlineWithHistory(">> ", "zlox");
         if (raw) |_| {
@@ -47,8 +53,11 @@ fn repl(vm: *VM) !void {
                     std.debug.print("\n", .{});
                 }
             } else |_| {}
-        } else {
-            return;
+        } else switch (std.posix.errno(-1)) {
+            // ctrl-c
+            .INTR => std.c._errno().* = 0,
+            // ctrl-d
+            else => return,
         }
     }
 }
