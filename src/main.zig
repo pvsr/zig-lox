@@ -41,7 +41,12 @@ fn repl(vm: *VM) !void {
                 trimmed;
             defer if (unterminated) vm.gpa.free(line);
 
-            vm.interpretStr(line) catch {};
+            if (vm.interpretStr(line)) |result| {
+                if (result) |val| {
+                    val.debug();
+                    std.debug.print("\n", .{});
+                }
+            } else |_| {}
         } else {
             return;
         }
@@ -53,7 +58,7 @@ fn runFile(io: std.Io, vm: *VM, path: []const u8) !void {
     defer f.close(io);
     var buf: [1024]u8 = undefined;
     var r = f.reader(io, &buf);
-    vm.interpret(&r.interface) catch |err| {
+    _ = vm.interpret(&r.interface) catch |err| {
         switch (err) {
             VM.InterpreterError.CompileError => std.process.exit(65),
             VM.InterpreterError.RuntimeError => std.process.exit(70),

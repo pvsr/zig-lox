@@ -43,7 +43,7 @@ pub fn deinit(self: *VM) void {
     self.objects.deinit(self.gpa);
 }
 
-pub fn interpret(self: *VM, source: *Reader) !void {
+pub fn interpret(self: *VM, source: *Reader) !?Value {
     var chunk: Chunk = .init(self.gpa);
     defer chunk.deinit();
 
@@ -55,7 +55,8 @@ pub fn interpret(self: *VM, source: *Reader) !void {
     return self.run();
 }
 
-fn run(self: *VM) !void {
+fn run(self: *VM) !?Value {
+    var result: ?Value = null;
     while (true) {
         if (debug.DEBUG) {
             std.debug.print("          ", .{});
@@ -68,6 +69,7 @@ fn run(self: *VM) !void {
             _ = debug.disassembleInstruction(self.chunk, self.ip - self.chunk.code.items.ptr);
         }
         const instruction: OpCode = @enumFromInt(self.readByte());
+        if (instruction != .@"return") result = null;
         switch (instruction) {
             .print => self.print(self.pop()) catch return self.runtimeError("Write error.", .{}),
             .jump => self.jump(self.readJumpOffset()),
@@ -79,7 +81,7 @@ fn run(self: *VM) !void {
                 const offset = self.readJumpOffset();
                 if (!isFalsey(self.peek(0))) self.jump(offset);
             },
-            .@"return" => return,
+            .@"return" => return result,
             .negate => switch (self.stack.getLast()) {
                 .number => self.push(.{ .number = -self.pop().number }),
                 else => return self.runtimeError("Operand must be a number.", .{}),
@@ -91,7 +93,7 @@ fn run(self: *VM) !void {
             .nil => self.push(Value.nil),
             .true => self.push(.{ .bool = true }),
             .false => self.push(.{ .bool = false }),
-            .pop => _ = self.pop(),
+            .pop => result = self.pop(),
             .get_local => {
                 const slot = self.readByte();
                 self.push(self.stack.items[slot]);
@@ -127,6 +129,7 @@ fn run(self: *VM) !void {
             },
         }
     }
+    return result;
 }
 
 fn addOrConcat(self: *VM) !void {
@@ -237,7 +240,7 @@ fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) Interpre
     return InterpreterError.RuntimeError;
 }
 
-pub fn interpretStr(self: *VM, source: []const u8) !void {
+pub fn interpretStr(self: *VM, source: []const u8) !?Value {
     var r: Reader = .fixed(source);
     return self.interpret(&r);
 }
