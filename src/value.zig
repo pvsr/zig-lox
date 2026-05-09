@@ -4,6 +4,8 @@ const Obj = @import("object.zig").Obj;
 const Objects = @import("Objects.zig");
 const Str = @import("object.zig").Str;
 
+pub var COLOR = true;
+
 pub const Value = union(Type) {
     const Type = enum {
         bool,
@@ -39,7 +41,14 @@ pub const Value = union(Type) {
     }
 
     pub fn debug(self: Value) void {
+        if (COLOR) std.debug.print("\x1b[{s}m", .{switch (self) {
+            .bool => "33", // yellow
+            .number => "32", // green
+            .str => "35", // magenta
+            else => "36", // cyan
+        }});
         self.write(std.debug) catch unreachable;
+        if (COLOR) std.debug.print("\x1b[0m", .{});
     }
 
     pub fn equals(self: Value, other: Value) bool {
