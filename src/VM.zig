@@ -246,6 +246,7 @@ pub fn interpretStr(self: *VM, source: []const u8) !?Value {
 
 test {
     @import("log.zig").LOG = false;
+    debug.DEBUG = false;
     var out_buf: [256]u8 = undefined;
     var out: Writer = .fixed(&out_buf);
     var stack_buf: StackBuffer = undefined;
