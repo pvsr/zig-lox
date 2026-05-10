@@ -25,9 +25,21 @@ pub fn disassembleInstruction(chunk: *Chunk, offset: usize) usize {
 
     const instruction: Chunk.OpCode = @enumFromInt(chunk.code.items[offset]);
     return offset + switch (instruction) {
-        .constant, .get_global, .define_global, .set_global => constantInstruction(@tagName(instruction), chunk, offset),
-        .get_local, .set_local => byteInstruction(@tagName(instruction), chunk, offset),
-        .jump, .jump_if_false, .jump_if_true => jumpInstruction(@tagName(instruction), chunk, offset),
+        .constant, .get_global, .define_global, .set_global => constantInstruction(
+            @tagName(instruction),
+            chunk,
+            offset,
+        ),
+        .get_local, .set_local => byteInstruction(
+            @tagName(instruction),
+            chunk,
+            offset,
+        ),
+        .jump, .jump_if_false, .jump_if_true => jumpInstruction(
+            @tagName(instruction),
+            chunk,
+            offset,
+        ),
         else => simpleInstruction(@tagName(instruction)),
     };
 }
@@ -52,7 +64,11 @@ fn byteInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
 }
 
 fn jumpInstruction(name: []const u8, chunk: *Chunk, offset: usize) u8 {
-    const jump = std.mem.readVarInt(Chunk.JumpOffset, chunk.code.items[offset + 1 .. offset + 3], .little);
+    const jump = std.mem.readVarInt(
+        Chunk.JumpOffset,
+        chunk.code.items[offset + 1 .. offset + 3],
+        .little,
+    );
     var dest = offset + 3;
     if (jump < 0) {
         const i: u16 = @intCast(-jump);

@@ -613,7 +613,11 @@ fn errorAt(token: Token, message: []const u8) void {
         w.print("'", .{}) catch unreachable;
         location = w.buffered();
     }
-    log.err("[line {d}] Error{s}: {s}", .{ token.line, location, message });
+    log.err("[line {d}] Error{s}: {s}", .{
+        token.line,
+        location,
+        message,
+    });
 
     parser.had_error = true;
 }

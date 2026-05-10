@@ -140,8 +140,9 @@ fn identifierType(self: *Scanner) !Token.Type {
 }
 
 fn checkKeyword(r: *Reader, comptime rest: []const u8, tokenType: Token.Type) !Token.Type {
-    if (std.mem.eql(u8, r.takeArray(rest.len) catch |err|
-        return if (err == error.EndOfStream) .identifier else err, rest))
+    const input = r.takeArray(rest.len) catch |err|
+        return if (err == error.EndOfStream) .identifier else err;
+    if (std.mem.eql(u8, input, rest))
         return tokenType
     else
         return .identifier;
@@ -223,60 +224,47 @@ test {
         .line = 1,
     } });
     try scanTest("\"abc\" + \"def\"", &.{ .{
-        .type = .{
-            .string = "abc",
-        },
+        .type = .{ .string = "abc" },
         .line = 1,
     }, .{
         .type = .plus,
         .line = 1,
     }, .{
-        .type = .{
-            .string = "def",
-        },
+        .type = .{ .string = "def" },
         .line = 1,
     } });
-    try scanTest("p", &.{.{ .type = .{ .identifier = "p" }, .line = 1 }});
+    try scanTest("p", &.{.{
+        .type = .{ .identifier = "p" },
+        .line = 1,
+    }});
     try scanTest("10 / 5 // comment", &.{ .{
-        .type = .{
-            .number = 10,
-        },
+        .type = .{ .number = 10 },
         .line = 1,
     }, .{
         .type = .slash,
         .line = 1,
     }, .{
-        .type = .{
-            .number = 5,
-        },
+        .type = .{ .number = 5 },
         .line = 1,
     } });
 
     const src = "print 1.5 true;";
-    const tokens: [5]Token = .{
-        .{
-            .type = .kw_print,
-            .line = 1,
-        },
-        .{
-            .type = .{
-                .number = 1.5,
-            },
-            .line = 1,
-        },
-        .{
-            .type = .kw_true,
-            .line = 1,
-        },
-        .{
-            .type = .semicolon,
-            .line = 1,
-        },
-        .{
-            .type = .eof,
-            .line = 1,
-        },
-    };
+    const tokens: [5]Token = .{ .{
+        .type = .kw_print,
+        .line = 1,
+    }, .{
+        .type = .{ .number = 1.5 },
+        .line = 1,
+    }, .{
+        .type = .kw_true,
+        .line = 1,
+    }, .{
+        .type = .semicolon,
+        .line = 1,
+    }, .{
+        .type = .eof,
+        .line = 1,
+    } };
     try scanTest(src, &tokens);
 }
 

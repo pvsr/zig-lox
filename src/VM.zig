@@ -68,7 +68,10 @@ fn run(self: *VM) !?Value {
                 std.debug.print(" ]", .{});
             }
             std.debug.print("\n", .{});
-            _ = debug.disassembleInstruction(self.chunk, self.ip - self.chunk.code.items.ptr);
+            _ = debug.disassembleInstruction(
+                self.chunk,
+                self.ip - self.chunk.code.items.ptr,
+            );
         }
         const instruction: OpCode = @enumFromInt(self.readByte());
         if (instruction != .@"return") result = null;
@@ -145,7 +148,11 @@ fn addOrConcat(self: *VM) !void {
         },
         .str => |b| switch (self.pop()) {
             .str => |a| {
-                const str = std.mem.concat(self.gpa, u8, &[_][]const u8{ a.slice, b.slice }) catch unreachable;
+                const str = std.mem.concat(
+                    self.gpa,
+                    u8,
+                    &[_][]const u8{ a.slice, b.slice },
+                ) catch unreachable;
                 self.push(.ownedStr(self.gpa, self.objects, str));
                 return;
             },
