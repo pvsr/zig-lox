@@ -12,6 +12,8 @@ const Objects = @import("Objects.zig");
 const Table = @import("table.zig").Table;
 const Value = @import("value.zig").Value;
 
+const log = @import("log.zig").scoped(.compile);
+
 const VM = @This();
 
 pub const InterpreterError = error{ CompileError, RuntimeError };
@@ -230,12 +232,9 @@ fn isFalsey(value: Value) bool {
 }
 
 fn runtimeError(self: *VM, comptime message: []const u8, args: anytype) InterpreterError {
-    std.debug.print(message, args);
-    std.debug.print("\n", .{});
-
     const instruction = self.ip - self.chunk.code.items.ptr - 1;
     const line = self.chunk.lines.items[instruction];
-    std.debug.print("[line {d}] in script\n", .{line});
+    log.err("[line {d}] " ++ message, .{line} ++ args);
     self.stack.clearRetainingCapacity();
     return InterpreterError.RuntimeError;
 }
@@ -246,6 +245,7 @@ pub fn interpretStr(self: *VM, source: []const u8) !?Value {
 }
 
 test {
+    @import("log.zig").LOG = false;
     var out_buf: [256]u8 = undefined;
     var out: Writer = .fixed(&out_buf);
     var stack_buf: StackBuffer = undefined;

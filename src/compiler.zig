@@ -1,12 +1,15 @@
 const std = @import("std");
+const Writer = std.Io.Writer;
 
 const Chunk = @import("Chunk.zig");
 const JumpOffset = Chunk.JumpOffset;
 const debug = @import("debug.zig");
+const Objects = @import("Objects.zig");
 const Scanner = @import("Scanner.zig");
 const Token = @import("Token.zig");
-const Objects = @import("Objects.zig");
 const Value = @import("value.zig").Value;
+
+const log = @import("log.zig").scoped(.compile);
 
 const Parser = struct {
     gpa: std.mem.Allocator,
@@ -52,7 +55,7 @@ var compiler: Compiler = .{};
 
 pub fn compile(gpa: std.mem.Allocator, source: *std.Io.Reader, chunk: *Chunk, objects: *Objects) bool {
     var buf: [255]u8 = undefined;
-    var out: std.Io.Writer = .fixed(&buf);
+    var out: Writer = .fixed(&buf);
     var scanner: Scanner = .init(gpa, source, &out);
     parser = .{
         .gpa = gpa,
@@ -595,20 +598,22 @@ fn @"error"(message: []const u8) void {
 
 fn errorAt(token: Token, message: []const u8) void {
     defer token.deinit(parser.gpa);
-    if (parser.panic_mode) return;
     parser.panic_mode = true;
-    std.debug.print("[line {d}] Error", .{token.line});
 
+    var location: []const u8 = undefined;
     if (token.type == .eof) {
-        std.debug.print(" at end", .{});
+        location = " at end";
     } else if (token.type == .err) {
-        // Nothing.
+        location = "";
     } else {
-        std.debug.print(" at '", .{});
-        token.print();
-        std.debug.print("'", .{});
+        var buf: [4096]u8 = undefined;
+        var w: Writer = .fixed(&buf);
+        w.print(" at '", .{}) catch unreachable;
+        token.write(&w) catch unreachable;
+        w.print("'", .{}) catch unreachable;
+        location = w.buffered();
     }
+    log.err("[line {d}] Error{s}: {s}", .{ token.line, location, message });
 
-    std.debug.print(": {s}\n", .{message});
     parser.had_error = true;
 }
